@@ -733,11 +733,9 @@ document.addEventListener('click', () => {
 
 ## Related Skills
 
-- `ecs-events` - Audio events
-- `ecs-system-patterns` - System implementation
 - `input-system` - User interaction for autoplay
 - `mobile-performance` - Mobile optimization
-- `threejs-scene-setup` - Camera for audio listener
+- `threejs-fundamentals` - Camera setup (audio listener is typically attached to the camera)
 
 ## References
 

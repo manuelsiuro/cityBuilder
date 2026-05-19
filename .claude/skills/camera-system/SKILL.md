@@ -560,10 +560,9 @@ playerTarget.priority = 0; // Normal priority
 
 ## Related Skills
 
-- `threejs-camera-controls` - Three.js camera patterns
+- `threejs-interaction` - OrbitControls, MapControls and other built-in camera control helpers
+- `threejs-fundamentals` - Camera basics (perspective vs orthographic, lookAt, transforms)
 - `input-system` - Camera input handling
-- `ecs-system-patterns` - System implementation
-- `collision-system` - Camera collision detection
 - `mobile-performance` - Mobile optimization
 
 ## References

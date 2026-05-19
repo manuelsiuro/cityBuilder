@@ -206,4 +206,4 @@ export async function listSlotSummaries(): Promise<SaveSummary[]> {
 ## See also
 
 - `game-state-machine` — persist the FSM state itself by including its `current` field in the save shape.
-- `mobile-battery` and `mobile-performance` — autosave hooks tie naturally to `pagehide` and `visibilitychange`, which are also the right places to pause rendering and free GPU resources.
+- `battery-optimization` and `mobile-performance` — autosave hooks tie naturally to `pagehide` and `visibilitychange`, which are also the right places to pause rendering and free GPU resources.

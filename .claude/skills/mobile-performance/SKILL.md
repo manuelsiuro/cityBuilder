@@ -515,8 +515,7 @@ if (batteryManager.shouldReduceQuality()) {
 
 ## Related Skills
 
-- `threejs-scene-setup` - Renderer configuration
-- `threejs-optimization` - General optimization techniques
+- `threejs-fundamentals` - Renderer configuration (pixelRatio, antialias, powerPreference)
 - `touch-input-handling` - Mobile input
-- `texture-management` - Texture optimization
+- `memory-management` - Texture and geometry disposal, pooling
 - `battery-optimization` - Advanced battery management

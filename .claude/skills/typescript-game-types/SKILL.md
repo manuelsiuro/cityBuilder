@@ -458,6 +458,6 @@ Enable strict settings in `tsconfig.json`:
 
 ## Related Skills
 
-- `ecs-architecture` - ECS implementation with TypeScript
-- `typescript-ecs-types` - Advanced ECS typing patterns
-- `typescript-performance` - Performance optimization techniques
+- `mastering-typescript` - Broader TypeScript patterns (generics, mapped types, conditional types, Zod validation)
+- `game-state-machine` - Tagged unions and exhaustiveness for game flow
+- `game-save-system` - Versioned schema types and migration patterns

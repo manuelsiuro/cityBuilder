@@ -515,7 +515,5 @@ inputSystem.dispose();
 
 ## Related Skills
 
-- `touch-input-handling` - Mobile touch controls
-- `ecs-component-patterns` - Component design
-- `player-controller` - Player movement logic
-- `combat-system` - Action handling
+- `touch-input-handling` - Mobile touch controls, gestures, virtual joystick
+- `game-state-machine` - Swap input maps on state transitions (menu vs play vs paused)

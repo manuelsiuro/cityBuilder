@@ -799,11 +799,10 @@ class DisposableScene {
 
 ## Related Skills
 
-- `mobile-battery-optimization` - Power management
+- `battery-optimization` - Power management
 - `mobile-performance` - General optimization
-- `threejs-texture-management` - Texture optimization
-- `threejs-geometry-management` - Geometry sharing
-- `ecs-performance` - ECS memory patterns
+- `threejs-textures` - Texture configuration and optimization
+- `threejs-geometry` - Geometry creation and sharing patterns
 
 ## References
 

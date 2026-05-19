@@ -819,10 +819,9 @@ document.addEventListener('visibilitychange', () => {
 ## Related Skills
 
 - `mobile-performance` - General mobile optimization
-- `mobile-memory-management` - Memory efficiency
-- `threejs-performance-profiling` - Performance monitoring
-- `threejs-best-practices` - Rendering optimization
-- `ecs-performance` - System optimization
+- `memory-management` - Memory efficiency, texture/geometry disposal
+- `threejs-fundamentals` - Renderer configuration that affects power draw
+- `game-save-system` - Pair `visibilitychange`/`pagehide` saves with the same hooks that pause rendering
 
 ## References
 
