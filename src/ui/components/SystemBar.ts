@@ -1,11 +1,15 @@
-import { Container, Graphics, Text } from "pixi.js";
+import { Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
 
 export type SystemAction = "new" | "save" | "load";
 
-const BTN_W = 66;
-const BTN_H = 32;
+/** Icon textures keyed by action; a missing entry falls back to text only. */
+export type SystemIcons = Partial<Record<SystemAction, Texture>>;
+
+const BTN_W = 96;
+const BTN_H = 36;
 const GAP = 6;
 const MARGIN = 12;
+const ICON = 22;
 /** Sits below the overlay button (12 + 38 + 8). */
 const TOP = 58;
 
@@ -21,20 +25,37 @@ interface SysButton {
   localX: number;
 }
 
-/** Top-right cluster of New / Save / Load buttons. */
+/** Top-right cluster of New / Save / Load buttons, each with a glyph. */
 export class SystemBar {
   readonly container = new Container();
 
   private readonly buttons: SysButton[] = [];
   private readonly rects = new Map<SystemAction, { x: number; y: number; w: number; h: number }>();
 
-  constructor(private readonly onAction: (action: SystemAction) => void) {
+  constructor(
+    private readonly onAction: (action: SystemAction) => void,
+    icons: SystemIcons = {},
+  ) {
     DEFS.forEach((def, i) => {
       const c = new Container();
       const bg = new Graphics()
-        .roundRect(0, 0, BTN_W, BTN_H, 7)
-        .fill({ color: 0x2b313c, alpha: 0.92 })
-        .stroke({ width: 1, color: 0x47505f });
+        .roundRect(0, 0, BTN_W, BTN_H, 9)
+        .fill({ color: 0x222833, alpha: 0.95 })
+        .stroke({ width: 1.5, color: 0x3a4250 });
+      c.addChild(bg);
+
+      let labelX = BTN_W / 2;
+      const icon = icons[def.id];
+      if (icon) {
+        const sprite = new Sprite(icon);
+        sprite.anchor.set(0.5);
+        const s = ICON / Math.max(sprite.texture.width, sprite.texture.height, 1);
+        sprite.scale.set(s);
+        sprite.position.set(20, BTN_H / 2);
+        c.addChild(sprite);
+        labelX = 20 + ICON / 2 + (BTN_W - 20 - ICON / 2) / 2;
+      }
+
       const label = new Text({
         text: def.label,
         style: {
@@ -45,8 +66,9 @@ export class SystemBar {
         },
       });
       label.anchor.set(0.5);
-      label.position.set(BTN_W / 2, BTN_H / 2);
-      c.addChild(bg, label);
+      label.position.set(labelX, BTN_H / 2);
+      c.addChild(label);
+
       const localX = i * (BTN_W + GAP);
       c.x = localX;
       this.container.addChild(c);

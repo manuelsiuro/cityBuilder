@@ -3,7 +3,7 @@ import { ToolPalette, type ToolIcons } from "./components/ToolPalette";
 import { OverlayButton, type OverlayChoice } from "./components/OverlayButton";
 import { RciWidget } from "./components/RciWidget";
 import { BudgetBar } from "./components/BudgetBar";
-import { SystemBar, type SystemAction } from "./components/SystemBar";
+import { SystemBar, type SystemAction, type SystemIcons } from "./components/SystemBar";
 import { Minimap } from "./components/Minimap";
 import { Notifications } from "./components/Notifications";
 import type { Tool } from "../input/ToolController";
@@ -54,7 +54,7 @@ export class UIApp {
 
     this.palette = new ToolPalette(cb.onSelectTool, await loadToolIcons());
     this.overlay = new OverlayButton(cb.onOverlayChange);
-    this.system = new SystemBar(cb.onSystemAction);
+    this.system = new SystemBar(cb.onSystemAction, await loadSystemIcons());
     this.rci = new RciWidget();
     this.budget = new BudgetBar();
     this.minimap = new Minimap(mapW, mapH);
@@ -174,6 +174,28 @@ async function loadToolIcons(): Promise<ToolIcons> {
         icons[tool] = await Assets.load(`/assets/icons/${tool}.png`);
       } catch {
         /* no glyph — ToolPalette renders the label alone */
+      }
+    }),
+  );
+  return icons;
+}
+
+/** File names for the New / Save / Load glyphs. */
+const SYSTEM_ICON_FILES: Record<SystemAction, string> = {
+  new: "sysNew",
+  save: "sysSave",
+  load: "sysLoad",
+};
+
+/** Load the generated system-button glyphs; missing icons fall back to text. */
+async function loadSystemIcons(): Promise<SystemIcons> {
+  const icons: SystemIcons = {};
+  await Promise.all(
+    (Object.keys(SYSTEM_ICON_FILES) as SystemAction[]).map(async (action) => {
+      try {
+        icons[action] = await Assets.load(`/assets/icons/${SYSTEM_ICON_FILES[action]}.png`);
+      } catch {
+        /* no glyph — SystemBar renders the label alone */
       }
     }),
   );
