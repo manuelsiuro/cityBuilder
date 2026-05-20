@@ -258,6 +258,24 @@ function lotGreenery(b: MeshBuilder, variant: number): void {
   b.ico(0.1, c[0], 0, c[1], LEAF[(variant + 1) % LEAF.length]);
 }
 
+/** A low fence or hedge ringing the house lot, with a front gate gap. */
+function lotFence(b: MeshBuilder, variant: number): void {
+  const e = 0.45;
+  const hedge = variant % 2 === 0;
+  const col = hedge ? 0x6f9850 : 0xcfc6b0;
+  const h = hedge ? 0.16 : 0.12;
+  b.box(0.92, h, 0.05, 0, 0, e, col);
+  b.box(0.05, h, 0.92, e, 0, 0, col);
+  b.box(0.05, h, 0.92, -e, 0, 0, col);
+  b.box(0.3, h, 0.05, -0.31, 0, -e, col);
+  b.box(0.3, h, 0.05, 0.31, 0, -e, col);
+  if (!hedge) {
+    for (const [px, pz] of [[-e, -e], [e, -e], [e, e], [-e, e]]) {
+      b.box(0.07, h + 0.05, 0.07, px, 0, pz, 0xb8ad92);
+    }
+  }
+}
+
 /* ---- archetype builders ------------------------------------------------ */
 
 /** Small detached house — gabled or (variant 5) flat-roofed modern. */
@@ -298,6 +316,7 @@ function house(b: MeshBuilder, variant: number): void {
     b.box(0.05, fh * 0.62, 0.05, w * 0.3, 0.04, -d / 2 - 0.2, TRIM);
   }
   lotGreenery(b, variant);
+  lotFence(b, variant);
 }
 
 /** Storeys for a flat-roof tower of the given zone, level and variant. */
