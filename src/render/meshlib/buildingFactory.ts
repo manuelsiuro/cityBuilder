@@ -152,6 +152,30 @@ function windowBand(
   b.box(0.06, h, fd, -w / 2, baseY, 0, color);
 }
 
+/** A row of individual punched windows wrapping one storey. */
+function windowGrid(
+  b: MeshBuilder,
+  w: number,
+  d: number,
+  baseY: number,
+  h: number,
+  color: number,
+): void {
+  const cols = 3;
+  const spanX = w * 0.78;
+  const spanZ = d * 0.78;
+  const winW = (spanX / cols) * 0.62;
+  const winD = (spanZ / cols) * 0.62;
+  for (let c = 0; c < cols; c++) {
+    const fx = -spanX / 2 + (c + 0.5) * (spanX / cols);
+    const fz = -spanZ / 2 + (c + 0.5) * (spanZ / cols);
+    b.box(winW, h, 0.06, fx, baseY, d / 2, color);
+    b.box(winW, h, 0.06, fx, baseY, -d / 2, color);
+    b.box(0.06, h, winD, w / 2, baseY, fz, color);
+    b.box(0.06, h, winD, -w / 2, baseY, fz, color);
+  }
+}
+
 /** Low parapet wall ringing a flat roof. */
 function parapet(b: MeshBuilder, w: number, d: number, topY: number, color: number): void {
   const t = 0.05;
@@ -294,6 +318,8 @@ function tower(b: MeshBuilder, zone: Zone, level: number, variant: number): void
   b.box(w + 0.08, 0.09, d + 0.08, 0, 0, 0, FOUND);
   b.box(w, top, d, 0, 0.05, 0, wall);
 
+  // Odd variants use punched windows; even variants use ribbon glazing.
+  const storey = variant % 2 === 1 ? windowGrid : windowBand;
   for (let f = 0; f < floors; f++) {
     if (isComm && f === 0) {
       // Tall glazed storefront on the commercial ground floor.
@@ -302,7 +328,7 @@ function tower(b: MeshBuilder, zone: Zone, level: number, variant: number): void
     }
     const by = 0.05 + f * fh + fh * 0.26;
     const lit = variant % 3 === 0 && f % 2 === 1;
-    windowBand(b, w, d, by, fh * 0.46, lit ? GLASS_LIT : GLASS);
+    storey(b, w, d, by, fh * 0.46, lit ? GLASS_LIT : GLASS);
   }
 
   b.box(0.22, 0.32, 0.05, 0, 0.05, -d / 2, TRIM);
