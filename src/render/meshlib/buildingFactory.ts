@@ -233,6 +233,19 @@ function roofTerrace(b: MeshBuilder, w: number, d: number, y: number): void {
   b.box(0.22, 0.05, 0.08, ex * 0.3, y, ez, 0x8a7d63);
 }
 
+/** A rooftop helipad — dark pad, painted H and corner lights. */
+function helipad(b: MeshBuilder, y: number): void {
+  b.box(0.38, 0.035, 0.38, 0, y, 0, 0x3a3f47);
+  b.box(0.05, 0.025, 0.22, -0.08, y + 0.035, 0, 0xe6e6e6);
+  b.box(0.05, 0.025, 0.22, 0.08, y + 0.035, 0, 0xe6e6e6);
+  b.box(0.13, 0.025, 0.05, 0, y + 0.035, 0, 0xe6e6e6);
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      b.box(0.035, 0.05, 0.035, sx * 0.16, y, sz * 0.16, 0xe0b048);
+    }
+  }
+}
+
 /** A drifting plume of pale smoke puffs rising from a stack at (x, y, z). */
 function smokePlume(b: MeshBuilder, x: number, y: number, z: number): void {
   b.ico(0.08, x, y, z, 0xe4e6ea);
@@ -403,7 +416,10 @@ function tower(b: MeshBuilder, zone: Zone, level: number, variant: number): void
   const rd = setback ? ud : d;
   b.box(rw * 0.99, 0.05, rd * 0.99, 0, 0.05 + top, 0, roofC);
   parapet(b, rw, rd, 0.05 + top, roofC);
-  if (isComm && variant % 3 === 2) {
+  if (setback) {
+    // The crown of a tall tower carries a helipad.
+    helipad(b, 0.05 + top + 0.05);
+  } else if (isComm && variant % 3 === 2) {
     roofTerrace(b, rw, rd, 0.05 + top + 0.05);
   } else {
     roofDetails(b, rw, rd, 0.05 + top + 0.05, variant, wall);
