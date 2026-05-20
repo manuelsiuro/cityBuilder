@@ -289,6 +289,11 @@ function tower(b: MeshBuilder, zone: Zone, level: number, variant: number): void
   b.box(w, top, d, 0, 0.05, 0, wall);
 
   for (let f = 0; f < floors; f++) {
+    if (isComm && f === 0) {
+      // Tall glazed storefront on the commercial ground floor.
+      windowBand(b, w, d, 0.05 + fh * 0.12, fh * 0.66, GLASS);
+      continue;
+    }
     const by = 0.05 + f * fh + fh * 0.26;
     const lit = variant % 3 === 0 && f % 2 === 1;
     windowBand(b, w, d, by, fh * 0.46, lit ? GLASS_LIT : GLASS);

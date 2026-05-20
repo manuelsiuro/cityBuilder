@@ -4,8 +4,9 @@ const BAR_W = 26;
 const BAR_H = 96;
 const GAP = 10;
 const PAD = 12;
+const HEADER = 18;
 const PANEL_W = PAD * 2 + BAR_W * 3 + GAP * 2;
-const PANEL_H = PAD * 2 + BAR_H + 18;
+const PANEL_H = PAD * 2 + HEADER + BAR_H + 18;
 const MARGIN = 16;
 
 const COLORS = [0x49c46a, 0x4a90d8, 0xe0b53c];
@@ -27,6 +28,21 @@ export class RciWidget {
       .fill({ color: 0x161a20, alpha: 0.82 })
       .stroke({ width: 1, color: 0x39414d });
     this.container.addChild(bg, this.bars);
+
+    const header = new Text({
+      text: "DEMAND",
+      style: {
+        fill: 0x8b95a1,
+        fontSize: 11,
+        fontFamily: "ui-sans-serif, system-ui, sans-serif",
+        fontWeight: "700",
+        letterSpacing: 1.5,
+      },
+    });
+    header.anchor.set(0.5, 0);
+    header.x = PANEL_W / 2;
+    header.y = PAD - 2;
+    this.container.addChild(header);
 
     LETTERS.forEach((ch, k) => {
       const label = new Text({
@@ -56,10 +72,11 @@ export class RciWidget {
     this.last = [r, c, i];
 
     const g = this.bars.clear();
-    const midY = PAD + BAR_H / 2;
+    const top = PAD + HEADER;
+    const midY = top + BAR_H / 2;
     [r, c, i].forEach((demand, k) => {
       const x = PAD + k * (BAR_W + GAP);
-      g.roundRect(x, PAD, BAR_W, BAR_H, 4).fill(0x0e1116);
+      g.roundRect(x, top, BAR_W, BAR_H, 4).fill(0x0e1116);
       const frac = Math.max(-1, Math.min(1, demand / 100));
       const h = Math.abs(frac) * (BAR_H / 2);
       if (h > 0.5) {
