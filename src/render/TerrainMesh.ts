@@ -49,14 +49,46 @@ function tileColor(city: CityData, i: number, out: THREE.Color): void {
   const type = city.terrainType[i];
   if (type === TerrainType.Water) {
     out.setHex(0x2f6ea5);
-  } else if (type === TerrainType.Rock) {
+    return;
+  }
+  if (type === TerrainType.Rock) {
     out.setHex(0x8b8784);
   } else {
     const t = city.elevation[i] / 8;
     out.setHex(0x4f7d3a).lerp(_lerpTarget.setHex(0x86ad5c), t);
+    // Sandy shoreline where grass meets water.
+    if (touchesWater(city, i)) {
+      out.lerp(_lerpTarget.setHex(0xcfc08a), 0.55);
+    }
   }
+  // Subtle deterministic per-tile jitter breaks up the flat ground.
+  const j = (terrainHash(city.grid.x(i), city.grid.y(i)) % 1000) / 1000;
+  out.multiplyScalar(0.94 + j * 0.12);
 }
 const _lerpTarget = new THREE.Color();
+
+/** True if any 4-neighbour of tile `i` is water. */
+function touchesWater(city: CityData, i: number): boolean {
+  const { grid } = city;
+  const x = grid.x(i);
+  const y = grid.y(i);
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    if (
+      grid.inBounds(x + dx, y + dy) &&
+      city.terrainType[grid.index(x + dx, y + dy)] === TerrainType.Water
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Deterministic per-tile hash for ground-colour variation. */
+function terrainHash(x: number, y: number): number {
+  let h = (Math.imul(x, 374761393) ^ Math.imul(y, 668265263)) >>> 0;
+  h ^= h >>> 13;
+  return h >>> 0;
+}
 
 function buildGeometry(city: CityData): THREE.BufferGeometry {
   const { grid } = city;
