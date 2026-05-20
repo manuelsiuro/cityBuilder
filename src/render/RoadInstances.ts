@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { CityData } from "../sim/CityData";
+import { MeshBuilder } from "./meshlib/buildingFactory";
 import { TILE, tileCenterX, tileCenterZ, tileSurfaceY } from "./constants";
 
 /** Neighbour offsets and the edge-aligned yaw for each. */
@@ -11,11 +12,10 @@ const DIRS = [
 ] as const;
 
 /**
- * Renders the road layer with three `InstancedMesh`es: a dark asphalt slab per
+ * Renders the road layer with four `InstancedMesh`es: a dark asphalt slab per
  * road tile, dashed centre-line stubs pointing at each connected neighbour
- * (they meet across edges as a lane line), and raised concrete kerbs along
- * every edge that borders a non-road tile — so kerbs frame the streets but
- * open up cleanly at junctions.
+ * (they meet across edges as a lane line), raised concrete kerbs along every
+ * edge that borders a non-road tile, and street lamps dotted along the kerbs.
  */
 export class RoadInstances {
   readonly group = new THREE.Group();
@@ -23,6 +23,8 @@ export class RoadInstances {
   private readonly asphalt: THREE.InstancedMesh;
   private readonly markings: THREE.InstancedMesh;
   private readonly kerbs: THREE.InstancedMesh;
+  private readonly lamps: THREE.InstancedMesh;
+  private readonly lampMaterial: THREE.MeshStandardMaterial;
   private readonly maxRoad: number;
   private readonly maxMark: number;
   private readonly maxKerb: number;
@@ -48,7 +50,15 @@ export class RoadInstances {
     this.kerbs = new THREE.InstancedMesh(kerbGeo, kerbMat, this.maxKerb);
     this.kerbs.frustumCulled = false;
 
-    this.group.add(this.asphalt, this.markings, this.kerbs);
+    this.lampMaterial = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.7,
+      flatShading: true,
+    });
+    this.lamps = new THREE.InstancedMesh(lampGeometry(), this.lampMaterial, this.maxRoad);
+    this.lamps.frustumCulled = false;
+
+    this.group.add(this.asphalt, this.markings, this.kerbs, this.lamps);
     this.rebuild(city);
   }
 
@@ -58,6 +68,7 @@ export class RoadInstances {
     let roadN = 0;
     let markN = 0;
     let kerbN = 0;
+    let lampN = 0;
 
     for (let ty = 0; ty < grid.height; ty++) {
       for (let tx = 0; tx < grid.width; tx++) {
@@ -104,21 +115,57 @@ export class RoadInstances {
             this.kerbs.setMatrixAt(kerbN++, this.dummy.matrix);
           }
         }
+
+        // A street lamp on a kerb corner of roughly every fourth road tile.
+        const h = roadHash(tx, ty);
+        if (h % 4 === 0 && lampN < this.maxRoad) {
+          const cdx = h & 1 ? 1 : -1;
+          const cdz = h & 2 ? 1 : -1;
+          this.dummy.position.set(
+            cx + cdx * TILE * 0.42,
+            y + 0.02,
+            cz + cdz * TILE * 0.42,
+          );
+          this.dummy.rotation.set(0, Math.atan2(cdz, -cdx), 0);
+          this.dummy.updateMatrix();
+          this.lamps.setMatrixAt(lampN++, this.dummy.matrix);
+        }
       }
     }
 
     this.asphalt.count = roadN;
     this.markings.count = markN;
     this.kerbs.count = kerbN;
+    this.lamps.count = lampN;
     this.asphalt.instanceMatrix.needsUpdate = true;
     this.markings.instanceMatrix.needsUpdate = true;
     this.kerbs.instanceMatrix.needsUpdate = true;
+    this.lamps.instanceMatrix.needsUpdate = true;
   }
 
   dispose(): void {
-    for (const m of [this.asphalt, this.markings, this.kerbs]) {
+    for (const m of [this.asphalt, this.markings, this.kerbs, this.lamps]) {
       m.geometry.dispose();
-      (m.material as THREE.Material).dispose();
     }
+    (this.asphalt.material as THREE.Material).dispose();
+    (this.markings.material as THREE.Material).dispose();
+    (this.kerbs.material as THREE.Material).dispose();
+    this.lampMaterial.dispose();
   }
+}
+
+/** Deterministic per-tile hash for street-lamp placement. */
+function roadHash(x: number, y: number): number {
+  let h = (Math.imul(x, 374761393) ^ Math.imul(y, 668265263)) >>> 0;
+  h ^= h >>> 13;
+  return h >>> 0;
+}
+
+/** A short street lamp: pole, arm and a warm lamp head. */
+function lampGeometry(): THREE.BufferGeometry {
+  const b = new MeshBuilder();
+  b.cyl(0.028, 0.54, 0, 0, 0, 0x3b4048, 6);
+  b.box(0.18, 0.035, 0.05, 0.08, 0.51, 0, 0x3b4048);
+  b.box(0.1, 0.08, 0.1, 0.16, 0.46, 0, 0xf6e7a8);
+  return b.build();
 }
