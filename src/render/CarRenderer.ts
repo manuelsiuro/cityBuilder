@@ -1,23 +1,31 @@
 import * as THREE from "three";
 import type { CityData } from "../sim/CityData";
 import type { Car } from "../sim/systems/TrafficSystem";
+import { MeshBuilder } from "./meshlib/buildingFactory";
 import { TILE, tileSurfaceY } from "./constants";
 
 /**
- * Renders car agents as a single instanced mesh. Each render frame their tile
- * positions are interpolated by the loop's `alpha` between the previous and
- * current sim tick, turning 10 Hz movement into smooth 60 fps motion.
+ * Renders car agents as a single instanced low-poly vehicle — chassis, cabin,
+ * glazing and four wheels. The body parts are white in the geometry so the
+ * per-instance colour tints them to each car's paint; wheels are black and
+ * glazing dark, so they survive the tint. Tile positions are interpolated by
+ * the loop's `alpha` between sim ticks, smoothing 10 Hz motion to 60 fps.
  */
 export class CarRenderer {
   readonly mesh: THREE.InstancedMesh;
 
+  private readonly material: THREE.MeshStandardMaterial;
   private readonly dummy = new THREE.Object3D();
   private readonly color = new THREE.Color();
 
   constructor(maxCars: number) {
-    const geo = new THREE.BoxGeometry(0.3, 0.2, 0.5);
-    const mat = new THREE.MeshStandardMaterial({ roughness: 0.55, metalness: 0.1 });
-    this.mesh = new THREE.InstancedMesh(geo, mat, maxCars);
+    this.material = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.5,
+      metalness: 0.12,
+      flatShading: true,
+    });
+    this.mesh = new THREE.InstancedMesh(carGeometry(), this.material, maxCars);
     this.mesh.count = 0;
     this.mesh.frustumCulled = false;
   }
@@ -42,7 +50,7 @@ export class CarRenderer {
 
       this.dummy.position.set(
         (tx - grid.width / 2 + 0.5) * TILE,
-        tileSurfaceY(city, tile) + 0.17,
+        tileSurfaceY(city, tile) + 0.11,
         (ty - grid.height / 2 + 0.5) * TILE,
       );
       this.dummy.rotation.set(0, heading, 0);
@@ -59,6 +67,24 @@ export class CarRenderer {
 
   dispose(): void {
     this.mesh.geometry.dispose();
-    (this.mesh.material as THREE.Material).dispose();
+    this.material.dispose();
   }
+}
+
+/** A low-poly car: white body (tinted per instance), dark glazing and wheels. */
+function carGeometry(): THREE.BufferGeometry {
+  const b = new MeshBuilder();
+  const w = 0.3;
+  const l = 0.54;
+
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      b.box(0.08, 0.1, 0.14, sx * (w / 2 - 0.01), 0, sz * (l / 2 - 0.13), 0x080808);
+    }
+  }
+  b.box(w, 0.13, l, 0, 0.07, 0, 0xffffff);
+  b.box(w * 0.86, 0.12, l * 0.46, 0, 0.2, -0.03, 0xffffff);
+  b.box(w * 0.92, 0.085, l * 0.42, 0, 0.215, -0.03, 0x161a20);
+
+  return b.build();
 }
