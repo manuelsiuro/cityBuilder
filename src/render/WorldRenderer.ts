@@ -93,7 +93,7 @@ export class WorldRenderer {
       this.terrain.mesh,
       this.roads.group,
       this.buildings.group,
-      this.cars.mesh,
+      this.cars.group,
       this.utilities.group,
       this.zoneOverlay.mesh,
       this.networkOverlay.mesh,
