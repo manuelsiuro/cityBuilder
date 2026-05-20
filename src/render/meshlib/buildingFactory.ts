@@ -9,7 +9,7 @@ import { Zone } from "../../sim/layers";
  */
 
 /** Distinct procedural designs generated per (zone × level). */
-export const BUILDING_VARIANTS = 4;
+export const BUILDING_VARIANTS = 6;
 
 /* ---- shared palette ---------------------------------------------------- */
 
@@ -21,10 +21,10 @@ const METAL = 0x8b8f96;
 const POLE = 0x55585f;
 const ROOF_GREY = [0x595d66, 0x4a4e57, 0x6b6f78];
 
-const RES_WALL = [0xe4d4b0, 0xcf8a6a, 0x84b0a0, 0xc77182];
-const HOUSE_ROOF = [0x9a4b3b, 0x4f5b6b, 0x6d4636, 0x3f5247];
-const COM_WALL = [0xe2e7ec, 0x6fa8c9, 0xe09a52, 0xb9c0c9];
-const COM_ACCENT = [0xd2452f, 0x2f6f8c, 0xb5471f, 0x445063];
+const RES_WALL = [0xe4d4b0, 0xcf8a6a, 0x84b0a0, 0xc77182, 0xd9b08c, 0x9aa9b8];
+const HOUSE_ROOF = [0x9a4b3b, 0x4f5b6b, 0x6d4636, 0x3f5247, 0x7a5c3e, 0x5a4452];
+const COM_WALL = [0xe2e7ec, 0x6fa8c9, 0xe09a52, 0xb9c0c9, 0xd9dde2, 0x7d9bb0];
+const COM_ACCENT = [0xd2452f, 0x2f6f8c, 0xb5471f, 0x445063, 0xc9682f, 0x356b52];
 const IND_WALL = [0x9c9588, 0x8c8478, 0xafa898, 0x86907d];
 
 /* ---- mesh builder ------------------------------------------------------ */
@@ -181,29 +181,42 @@ function roofDetails(
 
 /* ---- archetype builders ------------------------------------------------ */
 
-/** Small detached house with a pitched roof — residential level 1. */
+/** Small detached house — gabled or (variant 5) flat-roofed modern. */
 function house(b: MeshBuilder, variant: number): void {
-  const wall = RES_WALL[variant % 4];
-  const roofC = HOUSE_ROOF[variant % 4];
-  const w = 0.56 + (variant % 2) * 0.06;
+  const wall = RES_WALL[variant % RES_WALL.length];
+  const roofC = HOUSE_ROOF[variant % HOUSE_ROOF.length];
+  const w = 0.56 + (variant % 3) * 0.04;
   const d = 0.6;
-  const fh = 0.5;
+  const fh = variant === 5 ? 0.62 : 0.5;
 
   b.box(w + 0.06, 0.08, d + 0.06, 0, 0, 0, FOUND);
   b.box(w, fh, d, 0, 0.04, 0, wall);
-  b.gable(w + 0.12, 0.34, d + 0.12, 0, 0.04 + fh, 0, roofC);
 
+  if (variant === 5) {
+    // Flat-roofed modern bungalow.
+    b.box(w + 0.06, 0.06, d + 0.06, 0, 0.04 + fh, 0, roofC);
+    windowBand(b, w, d, 0.2, 0.2, GLASS);
+  } else {
+    b.gable(w + 0.12, 0.34, d + 0.12, 0, 0.04 + fh, 0, roofC);
+    b.box(0.16, 0.18, 0.05, w * 0.2, 0.22, -d / 2, GLASS);
+    b.box(0.05, 0.18, 0.18, w / 2, 0.26, 0.06, GLASS);
+    b.box(0.05, 0.18, 0.18, -w / 2, 0.26, -0.06, GLASS);
+  }
   b.box(0.16, 0.28, 0.05, -w * 0.18, 0.04, -d / 2, TRIM);
-  b.box(0.16, 0.18, 0.05, w * 0.2, 0.22, -d / 2, GLASS);
-  b.box(0.05, 0.18, 0.18, w / 2, 0.26, 0.06, GLASS);
-  b.box(0.05, 0.18, 0.18, -w / 2, 0.26, -0.06, GLASS);
 
   if (variant % 2 === 0) {
     b.box(0.1, 0.36, 0.1, w * 0.26, 0.04 + fh, d * 0.2, 0x6b5d52);
   }
   if (variant === 1) {
+    // Side garage.
     b.box(0.26, 0.3, 0.32, w * 0.5 + 0.06, 0.04, d * 0.12, wall);
     b.box(0.22, 0.2, 0.04, w * 0.5 + 0.06, 0.04, d * 0.12 - 0.17, TRIM);
+  }
+  if (variant === 4) {
+    // Covered front porch on slim posts.
+    b.box(w * 0.7, 0.04, 0.2, 0, 0.04 + fh * 0.62, -d / 2 - 0.12, roofC);
+    b.box(0.05, fh * 0.62, 0.05, -w * 0.3, 0.04, -d / 2 - 0.2, TRIM);
+    b.box(0.05, fh * 0.62, 0.05, w * 0.3, 0.04, -d / 2 - 0.2, TRIM);
   }
 }
 
@@ -222,9 +235,9 @@ function tower(b: MeshBuilder, zone: Zone, level: number, variant: number): void
   const isComm = zone === Zone.Commercial;
   const floors = towerFloors(zone, level, variant);
   const fh = 0.42;
-  const wall = (isComm ? COM_WALL : RES_WALL)[variant % 4];
-  const w = (isComm ? 0.66 : 0.62) + (variant % 2) * 0.06;
-  const d = (isComm ? 0.66 : 0.62) + ((variant >> 1) % 2) * 0.05;
+  const wall = (isComm ? COM_WALL : RES_WALL)[variant % COM_WALL.length];
+  const w = (isComm ? 0.64 : 0.6) + (variant % 3) * 0.04;
+  const d = (isComm ? 0.64 : 0.6) + ((variant + 1) % 3) * 0.04;
   const top = floors * fh;
 
   b.box(w + 0.08, 0.09, d + 0.08, 0, 0, 0, FOUND);
@@ -238,8 +251,17 @@ function tower(b: MeshBuilder, zone: Zone, level: number, variant: number): void
 
   b.box(0.22, 0.32, 0.05, 0, 0.05, -d / 2, TRIM);
 
+  // Residential towers with an odd variant get stacked front balconies.
+  if (!isComm && variant % 2 === 1) {
+    for (let f = 1; f < floors; f++) {
+      const by = 0.05 + f * fh;
+      b.box(w * 0.52, 0.04, 0.16, 0, by, -d / 2 - 0.08, wall);
+      b.box(w * 0.52, 0.11, 0.03, 0, by, -d / 2 - 0.15, TRIM);
+    }
+  }
+
   if (isComm) {
-    const accent = COM_ACCENT[variant % 4];
+    const accent = COM_ACCENT[variant % COM_ACCENT.length];
     b.box(w * 0.92, 0.05, 0.18, 0, fh * 0.92, -d / 2 - 0.07, accent);
     b.box(w * 0.44, 0.22, 0.06, 0, top * 0.52, -d / 2 - 0.02, accent);
   }
@@ -270,7 +292,7 @@ function industrial(b: MeshBuilder, level: number, variant: number): void {
   b.box(0.34, 0.36, 0.05, 0, 0.05, -d / 2, TRIM);
 
   const roofC = ROOF_GREY[variant % 3];
-  if (variant === 3) {
+  if (variant === 3 || variant === 5) {
     b.gable(w + 0.06, 0.3, d + 0.06, 0, 0.05 + top, 0, roofC);
   } else {
     b.box(w * 0.99, 0.05, d * 0.99, 0, 0.05 + top, 0, roofC);

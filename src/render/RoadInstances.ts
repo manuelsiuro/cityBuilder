@@ -2,7 +2,7 @@ import * as THREE from "three";
 import type { CityData } from "../sim/CityData";
 import { TILE, tileCenterX, tileCenterZ, tileSurfaceY } from "./constants";
 
-/** Connected-neighbour offsets and the marking-stub yaw for each. */
+/** Neighbour offsets and the edge-aligned yaw for each. */
 const DIRS = [
   { dx: 0, dz: -1, rot: 0 },
   { dx: 1, dz: 0, rot: Math.PI / 2 },
@@ -11,22 +11,27 @@ const DIRS = [
 ] as const;
 
 /**
- * Renders the road layer with two `InstancedMesh`es: a dark asphalt slab per
- * road tile, and short centre-line stubs pointing at each connected neighbour.
- * The stubs meet across tile edges, producing automatic auto-tiled junctions.
+ * Renders the road layer with three `InstancedMesh`es: a dark asphalt slab per
+ * road tile, dashed centre-line stubs pointing at each connected neighbour
+ * (they meet across edges as a lane line), and raised concrete kerbs along
+ * every edge that borders a non-road tile — so kerbs frame the streets but
+ * open up cleanly at junctions.
  */
 export class RoadInstances {
   readonly group = new THREE.Group();
 
   private readonly asphalt: THREE.InstancedMesh;
   private readonly markings: THREE.InstancedMesh;
+  private readonly kerbs: THREE.InstancedMesh;
   private readonly maxRoad: number;
   private readonly maxMark: number;
+  private readonly maxKerb: number;
   private readonly dummy = new THREE.Object3D();
 
   constructor(city: CityData) {
     this.maxRoad = city.grid.size;
     this.maxMark = city.grid.size * 8;
+    this.maxKerb = city.grid.size * 4;
 
     const asphaltGeo = new THREE.BoxGeometry(TILE * 0.98, 0.09, TILE * 0.98);
     const asphaltMat = new THREE.MeshStandardMaterial({ color: 0x303339, roughness: 0.95 });
@@ -38,7 +43,12 @@ export class RoadInstances {
     this.markings = new THREE.InstancedMesh(markGeo, markMat, this.maxMark);
     this.markings.frustumCulled = false;
 
-    this.group.add(this.asphalt, this.markings);
+    const kerbGeo = new THREE.BoxGeometry(TILE * 0.99, 0.13, 0.1);
+    const kerbMat = new THREE.MeshStandardMaterial({ color: 0x9a9ea6, roughness: 0.9 });
+    this.kerbs = new THREE.InstancedMesh(kerbGeo, kerbMat, this.maxKerb);
+    this.kerbs.frustumCulled = false;
+
+    this.group.add(this.asphalt, this.markings, this.kerbs);
     this.rebuild(city);
   }
 
@@ -47,6 +57,7 @@ export class RoadInstances {
     const { grid } = city;
     let roadN = 0;
     let markN = 0;
+    let kerbN = 0;
 
     for (let ty = 0; ty < grid.height; ty++) {
       for (let tx = 0; tx < grid.width; tx++) {
@@ -65,18 +76,32 @@ export class RoadInstances {
         for (const d of DIRS) {
           const nx = tx + d.dx;
           const ny = ty + d.dz;
-          if (!grid.inBounds(nx, ny) || city.road[grid.index(nx, ny)] === 0) continue;
-          // Two dashes per connected arm — they meet across edges as a lane line.
-          for (const t of [0.15, 0.36]) {
-            if (markN >= this.maxMark) continue;
+          const connected =
+            grid.inBounds(nx, ny) && city.road[grid.index(nx, ny)] !== 0;
+
+          if (connected) {
+            // Two dashes per connected arm — they meet across edges.
+            for (const t of [0.15, 0.36]) {
+              if (markN >= this.maxMark) continue;
+              this.dummy.position.set(
+                cx + d.dx * TILE * t,
+                y + 0.03,
+                cz + d.dz * TILE * t,
+              );
+              this.dummy.rotation.set(0, d.rot, 0);
+              this.dummy.updateMatrix();
+              this.markings.setMatrixAt(markN++, this.dummy.matrix);
+            }
+          } else if (kerbN < this.maxKerb) {
+            // Raised kerb along an edge that faces grass or the map border.
             this.dummy.position.set(
-              cx + d.dx * TILE * t,
-              y + 0.03,
-              cz + d.dz * TILE * t,
+              cx + d.dx * TILE * 0.47,
+              y + 0.02,
+              cz + d.dz * TILE * 0.47,
             );
             this.dummy.rotation.set(0, d.rot, 0);
             this.dummy.updateMatrix();
-            this.markings.setMatrixAt(markN++, this.dummy.matrix);
+            this.kerbs.setMatrixAt(kerbN++, this.dummy.matrix);
           }
         }
       }
@@ -84,14 +109,16 @@ export class RoadInstances {
 
     this.asphalt.count = roadN;
     this.markings.count = markN;
+    this.kerbs.count = kerbN;
     this.asphalt.instanceMatrix.needsUpdate = true;
     this.markings.instanceMatrix.needsUpdate = true;
+    this.kerbs.instanceMatrix.needsUpdate = true;
   }
 
   dispose(): void {
-    this.asphalt.geometry.dispose();
-    (this.asphalt.material as THREE.Material).dispose();
-    this.markings.geometry.dispose();
-    (this.markings.material as THREE.Material).dispose();
+    for (const m of [this.asphalt, this.markings, this.kerbs]) {
+      m.geometry.dispose();
+      (m.material as THREE.Material).dispose();
+    }
   }
 }
