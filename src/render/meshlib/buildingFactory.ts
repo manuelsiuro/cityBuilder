@@ -467,6 +467,41 @@ function industrial(b: MeshBuilder, level: number, variant: number): void {
   b.box(0.18, 0.1, 0.14, -w * 0.12, y, -d * 0.25, METAL);
 }
 
+/** An open multi-level parking garage — floor decks, columns and spandrels. */
+function parkingGarage(b: MeshBuilder, level: number): void {
+  const floors = level + 3;
+  const fh = 0.34;
+  const w = 0.72;
+  const d = 0.72;
+  const top = floors * fh;
+  const slab = 0x82868c;
+  const band = 0xacafb4;
+  const col = 0x8b8f95;
+
+  lotSlab(b);
+  b.box(w + 0.08, 0.09, d + 0.08, 0, 0, 0, FOUND);
+
+  for (const sx of [-1, 1]) {
+    for (const sz of [-1, 1]) {
+      b.box(0.09, top, 0.09, sx * (w / 2 - 0.05), 0.05, sz * (d / 2 - 0.05), col);
+    }
+  }
+  for (let f = 0; f <= floors; f++) {
+    const y = 0.05 + f * fh;
+    b.box(w, 0.06, d, 0, y, 0, slab);
+    if (f > 0 && f < floors) {
+      b.box(w + 0.02, 0.13, 0.05, 0, y, d / 2, band);
+      b.box(w + 0.02, 0.13, 0.05, 0, y, -d / 2, band);
+      b.box(0.05, 0.13, d + 0.02, w / 2, y, 0, band);
+      b.box(0.05, 0.13, d + 0.02, -w / 2, y, 0, band);
+    }
+  }
+  // Ground-floor entry portal and a rooftop sign pylon.
+  b.box(0.32, fh * 0.7, 0.05, 0, 0.05, -d / 2, 0x3c4350);
+  b.box(0.05, 0.46, 0.05, w * 0.28, 0.05 + top, d * 0.28, 0x55585f);
+  b.box(0.22, 0.22, 0.06, w * 0.28, 0.05 + top + 0.24, d * 0.28, 0xd2452f);
+}
+
 /* ---- entry point ------------------------------------------------------- */
 
 /** Build the merged, vertex-coloured geometry for one building archetype. */
@@ -480,6 +515,8 @@ export function createBuildingGeometry(
     industrial(b, level, variant);
   } else if (zone === Zone.Residential && level === 1) {
     house(b, variant);
+  } else if (zone === Zone.Commercial && variant === 4) {
+    parkingGarage(b, level);
   } else {
     tower(b, zone, level, variant);
   }
