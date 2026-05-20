@@ -1,4 +1,4 @@
-import { Application, Assets, Text } from "pixi.js";
+import { Application, Assets, Text, type Texture } from "pixi.js";
 import { ToolPalette, type ToolIcons } from "./components/ToolPalette";
 import { OverlayButton, type OverlayChoice } from "./components/OverlayButton";
 import { RciWidget } from "./components/RciWidget";
@@ -56,7 +56,7 @@ export class UIApp {
     this.overlay = new OverlayButton(cb.onOverlayChange);
     this.system = new SystemBar(cb.onSystemAction, await loadSystemIcons());
     this.rci = new RciWidget();
-    this.budget = new BudgetBar();
+    this.budget = new BudgetBar(await loadOptionalTexture("coin"));
     this.minimap = new Minimap(mapW, mapH);
     this.notifications = new Notifications();
     this.pauseBanner = new Text({
@@ -200,4 +200,13 @@ async function loadSystemIcons(): Promise<SystemIcons> {
     }),
   );
   return icons;
+}
+
+/** Load a single glyph by name, or `undefined` if the file is missing. */
+async function loadOptionalTexture(name: string): Promise<Texture | undefined> {
+  try {
+    return await Assets.load(`/assets/icons/${name}.png`);
+  } catch {
+    return undefined;
+  }
 }

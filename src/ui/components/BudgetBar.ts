@@ -1,9 +1,10 @@
-import { Container, Graphics, Text } from "pixi.js";
+import { Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
 import type { BudgetReport } from "../../sim/systems/BudgetSystem";
 
 const W = 232;
 const H = 58;
 const MARGIN = 12;
+const COIN = 30;
 
 /** Top-centre panel: current funds and last month's net budget. */
 export class BudgetBar {
@@ -13,7 +14,7 @@ export class BudgetBar {
   private readonly netText: Text;
   private lastFunds = NaN;
 
-  constructor() {
+  constructor(coinIcon?: Texture) {
     const bg = new Graphics()
       .roundRect(0, 0, W, H, 10)
       .fill({ color: 0x161a20, alpha: 0.86 })
@@ -44,6 +45,15 @@ export class BudgetBar {
     this.netText.position.set(W / 2, 35);
 
     this.container.addChild(bg, this.fundsText, this.netText);
+
+    if (coinIcon) {
+      const coin = new Sprite(coinIcon);
+      coin.anchor.set(0.5);
+      const s = COIN / Math.max(coin.texture.width, coin.texture.height, 1);
+      coin.scale.set(s);
+      coin.position.set(26, H / 2);
+      this.container.addChild(coin);
+    }
   }
 
   layout(screenW: number): void {
