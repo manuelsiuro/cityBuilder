@@ -161,7 +161,8 @@ export class UIApp {
 
 /** Tools whose glyphs live in `public/assets/icons/<tool>.png`. */
 const ICON_TOOLS: Tool[] = [
-  "inspect", "road", "bulldoze", "zoneR", "zoneC", "zoneI",
+  "inspect", "road", "bulldoze", "raiseTerrain", "lowerTerrain",
+  "zoneR", "zoneC", "zoneI",
   "powerLine", "powerPlant", "pipe", "waterPump",
 ];
 

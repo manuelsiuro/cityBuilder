@@ -68,6 +68,7 @@ export class App {
     ev.on("power:changed", () => renderer.refreshOverlay(world.city, "power"));
     ev.on("water:changed", () => renderer.refreshOverlay(world.city, "water"));
     ev.on("buildings:changed", () => renderer.rebuildBuildings(world.city));
+    ev.on("terrain:changed", () => renderer.rebuildTerrain(world.city));
     ev.on("budget:changed", (report) => {
       this.ui.setBudget(report);
       if (report.net < 0) this.ui.notify(`Monthly deficit: −$${Math.abs(report.net)}`);

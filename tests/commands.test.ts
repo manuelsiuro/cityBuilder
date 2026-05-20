@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { CityData } from "../src/sim/CityData";
 import { applyCommand } from "../src/sim/commands";
-import { Dirty, TerrainType, Zone } from "../src/sim/layers";
+import { Dirty, MAX_ELEVATION, TerrainType, Zone } from "../src/sim/layers";
 import { BUILDING } from "../src/sim/buildings";
 
 describe("applyCommand", () => {
@@ -64,6 +64,77 @@ describe("applyCommand", () => {
     expect(city.powerLine[i]).toBe(0);
     expect(city.pipe[i]).toBe(0);
     expect(city.buildingId[i]).toBe(BUILDING.None);
+  });
+
+  it("raises terrain, charges 10, and marks the terrain layer dirty", () => {
+    const city = new CityData(8, 8);
+    const i = city.grid.index(4, 4);
+    city.elevation[i] = 3;
+    const funds = city.funds;
+    applyCommand(city, { type: "raiseTerrain", x: 4, y: 4 });
+    expect(city.elevation[i]).toBe(4);
+    expect(city.funds).toBe(funds - 10);
+    expect(city.isDirty(Dirty.Terrain)).toBe(true);
+  });
+
+  it("lowers terrain by one tier", () => {
+    const city = new CityData(8, 8);
+    const i = city.grid.index(4, 4);
+    city.elevation[i] = 3;
+    applyCommand(city, { type: "lowerTerrain", x: 4, y: 4 });
+    expect(city.elevation[i]).toBe(2);
+  });
+
+  it("does not raise terrain above the maximum tier", () => {
+    const city = new CityData(8, 8);
+    const i = city.grid.index(4, 4);
+    city.elevation[i] = MAX_ELEVATION;
+    const funds = city.funds;
+    applyCommand(city, { type: "raiseTerrain", x: 4, y: 4 });
+    expect(city.elevation[i]).toBe(MAX_ELEVATION);
+    expect(city.funds).toBe(funds);
+  });
+
+  it("does not lower terrain below one tier above sea level", () => {
+    const city = new CityData(8, 8);
+    const i = city.grid.index(4, 4);
+    city.elevation[i] = 1;
+    const funds = city.funds;
+    applyCommand(city, { type: "lowerTerrain", x: 4, y: 4 });
+    expect(city.elevation[i]).toBe(1);
+    expect(city.funds).toBe(funds);
+  });
+
+  it("refuses to edit terrain on a water tile", () => {
+    const city = new CityData(8, 8);
+    const i = city.grid.index(2, 2);
+    city.terrainType[i] = TerrainType.Water;
+    city.elevation[i] = 3;
+    applyCommand(city, { type: "raiseTerrain", x: 2, y: 2 });
+    expect(city.elevation[i]).toBe(3);
+  });
+
+  it("refuses to edit terrain on an occupied tile", () => {
+    const city = new CityData(8, 8);
+    const roadTile = city.grid.index(2, 2);
+    const zoneTile = city.grid.index(5, 5);
+    city.elevation[roadTile] = 3;
+    city.elevation[zoneTile] = 3;
+    city.road[roadTile] = 1;
+    city.zone[zoneTile] = Zone.Residential;
+    applyCommand(city, { type: "raiseTerrain", x: 2, y: 2 });
+    applyCommand(city, { type: "lowerTerrain", x: 5, y: 5 });
+    expect(city.elevation[roadTile]).toBe(3);
+    expect(city.elevation[zoneTile]).toBe(3);
+  });
+
+  it("refuses to edit terrain without enough funds", () => {
+    const city = new CityData(8, 8);
+    const i = city.grid.index(4, 4);
+    city.elevation[i] = 3;
+    city.funds = 5;
+    applyCommand(city, { type: "raiseTerrain", x: 4, y: 4 });
+    expect(city.elevation[i]).toBe(3);
   });
 
   it("ignores commands outside the grid", () => {

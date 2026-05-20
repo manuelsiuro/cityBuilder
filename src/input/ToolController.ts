@@ -9,6 +9,8 @@ export type Tool =
   | "inspect"
   | "road"
   | "bulldoze"
+  | "raiseTerrain"
+  | "lowerTerrain"
   | "zoneR"
   | "zoneC"
   | "zoneI"
@@ -98,6 +100,10 @@ export class ToolController {
         return { type: "buildRoad", x, y };
       case "bulldoze":
         return { type: "bulldoze", x, y };
+      case "raiseTerrain":
+        return { type: "raiseTerrain", x, y };
+      case "lowerTerrain":
+        return { type: "lowerTerrain", x, y };
       case "powerLine":
         return { type: "buildPowerLine", x, y };
       case "pipe":

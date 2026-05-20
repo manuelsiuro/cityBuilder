@@ -20,6 +20,8 @@ const TOOLS: ToolDef[] = [
   { tool: "inspect", label: "Inspect", group: 0 },
   { tool: "road", label: "Road", group: 0 },
   { tool: "bulldoze", label: "Dozer", group: 0 },
+  { tool: "raiseTerrain", label: "Raise", group: 0 },
+  { tool: "lowerTerrain", label: "Lower", group: 0 },
   { tool: "zoneR", label: "Res", group: 1, accent: 0x49c46a },
   { tool: "zoneC", label: "Com", group: 1, accent: 0x4a90d8 },
   { tool: "zoneI", label: "Ind", group: 1, accent: 0xe0b53c },

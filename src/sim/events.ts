@@ -18,6 +18,8 @@ export type GameEventMap = {
   "water:changed": void;
   /** A zoned tile developed, levelled up, or declined — rebuild buildings. */
   "buildings:changed": void;
+  /** A terrain tile's elevation changed — renderer rebuilds the terrain mesh. */
+  "terrain:changed": void;
   /** A new month closed — carries the budget ledger for the HUD. */
   "budget:changed": BudgetReport;
 };

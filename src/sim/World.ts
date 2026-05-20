@@ -53,6 +53,9 @@ export class World {
     this.random = new Random(seed);
     this.city = new CityData(MAP_WIDTH, MAP_HEIGHT);
     generateTerrain(this.city, this.random);
+    // The renderer builds terrain directly via `buildCity` — clear the flag so
+    // the first tick doesn't fire a redundant `terrain:changed` rebuild.
+    this.city.clearDirty(Dirty.Terrain);
     this.roadSystem = new RoadSystem(this.roadGraph, this.events);
     this.powerSystem = new PowerSystem(this.events);
     this.waterSystem = new WaterSystem(this.events);
@@ -87,6 +90,10 @@ export class World {
     if (this.city.isDirty(Dirty.Utility)) {
       this.city.clearDirty(Dirty.Utility);
       this.events.emit("utilities:changed", undefined);
+    }
+    if (this.city.isDirty(Dirty.Terrain)) {
+      this.city.clearDirty(Dirty.Terrain);
+      this.events.emit("terrain:changed", undefined);
     }
 
     this.roadSystem.update(this.city);
@@ -153,6 +160,9 @@ export class World {
     this.trafficSystem.clear();
     this.landValueSystem.reset(); // terrain changed — drop the scenic cache
     c.markDirty(Dirty.Road | Dirty.Power | Dirty.Water | Dirty.Zone | Dirty.Utility);
+    // The renderer rebuilds terrain directly via `rebuildAll` — drop the flag
+    // so the next tick doesn't fire a redundant `terrain:changed` rebuild.
+    c.clearDirty(Dirty.Terrain);
 
     this.roadSystem.update(c);
     this.powerSystem.update(c);

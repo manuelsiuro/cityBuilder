@@ -136,6 +136,10 @@ export class WorldRenderer {
     this.buildings?.rebuild(city);
   }
 
+  rebuildTerrain(city: CityData): void {
+    this.terrain?.rebuild(city);
+  }
+
   /** Rebuild every world layer — used after loading a save. */
   rebuildAll(city: CityData): void {
     this.city = city;

@@ -1,5 +1,5 @@
 import type { CityData } from "./CityData";
-import { Dirty, TerrainType, Zone } from "./layers";
+import { Dirty, MAX_ELEVATION, TerrainType, Zone } from "./layers";
 import { BUILDING, buildingDef } from "./buildings";
 
 /**
@@ -13,7 +13,9 @@ export type Command =
   | { type: "buildPipe"; x: number; y: number }
   | { type: "zone"; x: number; y: number; zone: Zone }
   | { type: "placeBuilding"; x: number; y: number; building: number }
-  | { type: "bulldoze"; x: number; y: number };
+  | { type: "bulldoze"; x: number; y: number }
+  | { type: "raiseTerrain"; x: number; y: number }
+  | { type: "lowerTerrain"; x: number; y: number };
 
 /** Up-front construction cost per command. */
 const COST = {
@@ -21,6 +23,8 @@ const COST = {
   buildPowerLine: 6,
   buildPipe: 7,
   zone: 4,
+  raiseTerrain: 10,
+  lowerTerrain: 10,
 } as const;
 
 /** Apply one command to the city. Mutation happens only here, only at tick start. */
@@ -86,5 +90,33 @@ export function applyCommand(city: CityData, cmd: Command): void {
         Dirty.Road | Dirty.Power | Dirty.Water | Dirty.Zone | Dirty.Utility | Dirty.LandValue,
       );
       break;
+
+    case "raiseTerrain":
+      if (isWater || isTileOccupied(city, i) || city.funds < COST.raiseTerrain) return;
+      if (city.elevation[i] >= MAX_ELEVATION) return;
+      city.funds -= COST.raiseTerrain;
+      city.elevation[i]++;
+      city.markDirty(Dirty.Terrain);
+      break;
+
+    case "lowerTerrain":
+      if (isWater || isTileOccupied(city, i) || city.funds < COST.lowerTerrain) return;
+      // Keep land one tier above sea level so it never sinks to the waterline.
+      if (city.elevation[i] <= 1) return;
+      city.funds -= COST.lowerTerrain;
+      city.elevation[i]--;
+      city.markDirty(Dirty.Terrain);
+      break;
   }
+}
+
+/** True if anything is built or zoned on tile `i` — blocks terrain editing. */
+function isTileOccupied(city: CityData, i: number): boolean {
+  return (
+    city.road[i] !== 0 ||
+    city.powerLine[i] !== 0 ||
+    city.pipe[i] !== 0 ||
+    city.buildingId[i] !== 0 ||
+    city.zone[i] !== Zone.None
+  );
 }
