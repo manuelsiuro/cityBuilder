@@ -233,6 +233,13 @@ function roofTerrace(b: MeshBuilder, w: number, d: number, y: number): void {
   b.box(0.22, 0.05, 0.08, ex * 0.3, y, ez, 0x8a7d63);
 }
 
+/** A drifting plume of pale smoke puffs rising from a stack at (x, y, z). */
+function smokePlume(b: MeshBuilder, x: number, y: number, z: number): void {
+  b.ico(0.08, x, y, z, 0xe4e6ea);
+  b.ico(0.1, x + 0.06, y + 0.13, z - 0.04, 0xd8dbe0);
+  b.ico(0.12, x + 0.14, y + 0.27, z - 0.1, 0xccd0d6);
+}
+
 const LEAF = [0x4a7c3a, 0x57864a, 0x3f6b35, 0x6b9550];
 const LOT_CORNERS: ReadonlyArray<readonly [number, number]> = [
   [-0.36, -0.36], [0.36, -0.36], [0.36, 0.36], [-0.36, 0.36],
@@ -461,7 +468,10 @@ function industrial(b: MeshBuilder, level: number, variant: number): void {
 
   const y = roofY + 0.06;
   if (variant % 2 === 0) {
-    b.cyl(0.08, 0.5, -w * 0.32, roofY, d * 0.28, 0x9a4b3b);
+    const sx = -w * 0.32;
+    const sz = d * 0.28;
+    b.cyl(0.08, 0.5, sx, roofY, sz, 0x9a4b3b);
+    smokePlume(b, sx, roofY + 0.5, sz);
   }
   if (variant === 2 || variant === 5) {
     // Rooftop water tank on legs.

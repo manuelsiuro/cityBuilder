@@ -127,6 +127,11 @@ function plantGeometry(): THREE.BufferGeometry {
   b.cyl(0.21, 0.06, 0.24, 0.7, -0.16, 0xaeb2b8, 12);
   b.cyl(0.07, 0.78, 0.26, 0.08, 0.22, 0xc94f3d);
   b.cyl(0.075, 0.12, 0.26, 0.5, 0.22, 0xe4e4e4);
+  // Steam billowing from the cooling tower, smoke from the stack.
+  b.ico(0.15, 0.24, 0.72, -0.16, 0xeef0f2);
+  b.ico(0.17, 0.31, 0.92, -0.2, 0xe4e7ea);
+  b.ico(0.09, 0.26, 0.64, 0.22, 0xdcdee3);
+  b.ico(0.11, 0.33, 0.82, 0.18, 0xd0d3d9);
   return b.build();
 }
 
