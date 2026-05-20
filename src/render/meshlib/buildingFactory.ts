@@ -61,6 +61,14 @@ export class MeshBuilder {
     g.dispose();
   }
 
+  /** Faceted low-poly sphere; `y` is the base height (sphere sits on it). */
+  ico(r: number, x: number, y: number, z: number, color: number, detail = 0): void {
+    const g = new THREE.IcosahedronGeometry(r, detail);
+    g.translate(x, y + r, z);
+    this.merge(g, color);
+    g.dispose();
+  }
+
   /** Gable (pitched) roof prism; base at `y`, ridge running along Z. */
   gable(w: number, h: number, d: number, x: number, y: number, z: number, color: number): void {
     const hw = w / 2;
@@ -179,6 +187,31 @@ function roofDetails(
   }
 }
 
+const LEAF = [0x4a7c3a, 0x57864a, 0x3f6b35, 0x6b9550];
+const LOT_CORNERS: ReadonlyArray<readonly [number, number]> = [
+  [-0.36, -0.36], [0.36, -0.36], [0.36, 0.36], [-0.36, 0.36],
+];
+
+/** A small conifer or round tree standing on the lot. */
+function tree(b: MeshBuilder, x: number, z: number, variant: number): void {
+  const leaf = LEAF[variant % LEAF.length];
+  b.cyl(0.04, 0.14, x, 0, z, 0x6b4f33, 6);
+  if (variant % 2 === 0) {
+    b.cyl(0.15, 0.22, x, 0.11, z, leaf, 7, 0);
+    b.cyl(0.1, 0.18, x, 0.26, z, leaf, 7, 0);
+  } else {
+    b.ico(0.14, x, 0.1, z, leaf);
+  }
+}
+
+/** Two corner trees and a shrub framing a residential lot. */
+function lotGreenery(b: MeshBuilder, variant: number): void {
+  const a = LOT_CORNERS[variant % 4];
+  const c = LOT_CORNERS[(variant + 2) % 4];
+  tree(b, a[0], a[1], variant);
+  b.ico(0.1, c[0], 0, c[1], LEAF[(variant + 1) % LEAF.length]);
+}
+
 /* ---- archetype builders ------------------------------------------------ */
 
 /** Small detached house — gabled or (variant 5) flat-roofed modern. */
@@ -218,6 +251,7 @@ function house(b: MeshBuilder, variant: number): void {
     b.box(0.05, fh * 0.62, 0.05, -w * 0.3, 0.04, -d / 2 - 0.2, TRIM);
     b.box(0.05, fh * 0.62, 0.05, w * 0.3, 0.04, -d / 2 - 0.2, TRIM);
   }
+  lotGreenery(b, variant);
 }
 
 /** Storeys for a flat-roof tower of the given zone, level and variant. */
