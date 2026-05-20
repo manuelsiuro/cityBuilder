@@ -82,9 +82,32 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 Delegate to the matching agent when a request fits its scope rather than handling it inline.
 
-**Entry points:**
-- `src/main.ts` — boot, reads `?engine=three|pixi` from the URL.
-- `src/scenes/threeScene.ts` and `src/scenes/pixiScene.ts` — hello-world scenes; replace with your game.
-- `public/assets/` — static art / audio / 3D files.
+**Run:** `npm install && npm run dev` → http://localhost:5173/ · `npm test` · `npm run typecheck`
 
-**Run:** `npm install && npm run dev` → http://localhost:5173/
+---
+
+## Game: SimCity-style city builder
+
+A complete SimCity-2000-style city builder (all 6 build phases done). **Reference docs:**
+`docs/plan/PHASES.md` (per-phase checklist + verify results) and
+`docs/plan/ARCHITECTURE.md` (full design). When extending, keep a change green:
+`npm run typecheck` clean and `npm test` (89 tests) passing.
+
+**Module layout (`src/`):**
+- `engine/` — renderer-agnostic primitives (`EventBus`, `CommandQueue`, `Grid`, `Random`, `Sfx`). Imports nothing internal.
+- `sim/` — the simulation: `World`, `CityData` (struct-of-arrays), `systems/` (Road, Power, Water, Traffic, RCI, Development, LandValue, Population, Budget), `pathfinding/` (`RoadGraph`, `AStar`). Renderer-free, deterministic, headless-testable.
+- `render/` — Three.js world: `WorldRenderer`, terrain, instanced roads/buildings/cars, overlays. Reads `sim` **read-only**.
+- `ui/` — PixiJS v8 HUD on a separate stacked canvas (`UIApp` + `components/`).
+- `input/` — keyboard/pointer/touch (`Input`, `gestures`, `ToolController`).
+- `save/` — IndexedDB persistence (`SaveSystem`, `schema`, `migrations`, `storage`).
+- `app/` — composition root: `App`, `GameLoop`, `AppState`, `ServiceContext`.
+
+**Layering rule (do not break):** `sim/` never imports `render/`, `ui/`, `input/`,
+`three`, or `pixi.js`. `input/` + `ui/` mutate the sim **only** via `engine/CommandQueue`.
+The sim notifies the outside **only** via `engine/EventBus` (push-only).
+
+**Sim/render contract:** fixed-timestep simulation at 10 Hz (`SIM_TICK_MS = 100`)
+decoupled from a variable render frame via the `GameLoop` accumulator. `CityData`
+is struct-of-arrays (parallel typed arrays), not object-per-tile.
+
+**Tests:** Vitest, headless, in `tests/`. Keep `sim/` and `engine/` covered.

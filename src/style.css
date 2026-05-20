@@ -16,6 +16,9 @@ body {
   background: #111;
   color: #eee;
   font-family: ui-sans-serif, system-ui, sans-serif;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 #app {
@@ -29,23 +32,21 @@ body {
   height: 100%;
 }
 
-#hud {
+/* Debug HUD — Phase 0 readout. Replaced by the PixiJS HUD in Phase 2+. */
+#debug {
   position: fixed;
-  top: 12px;
-  left: 12px;
+  top: 10px;
+  left: 10px;
   z-index: 10;
-  background: rgba(0, 0, 0, 0.5);
-  padding: 6px 10px;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 5px 9px;
   border-radius: 6px;
-  font-size: 12px;
-  letter-spacing: 0.04em;
-}
-
-#hud a {
-  color: #9cf;
-  text-decoration: none;
-}
-
-#hud a:hover {
-  color: #fff;
+  font:
+    12px / 1.4 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  letter-spacing: 0.02em;
+  color: #bfe;
 }
