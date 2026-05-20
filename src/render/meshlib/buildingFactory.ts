@@ -13,8 +13,8 @@ export const BUILDING_VARIANTS = 6;
 
 /* ---- shared palette ---------------------------------------------------- */
 
-const GLASS = 0x9ec6da;
-const GLASS_LIT = 0xe6cf94;
+const GLASS = 0x6b8392;
+const GLASS_LIT = 0xe8d49a;
 const TRIM = 0x3c4350;
 const FOUND = 0xb7b1a4;
 const METAL = 0x8b8f96;
@@ -187,6 +187,17 @@ function roofDetails(
   }
 }
 
+/** A rooftop terrace — parasol, leafy planters and a bench. */
+function roofTerrace(b: MeshBuilder, w: number, d: number, y: number): void {
+  const ex = w * 0.24;
+  const ez = d * 0.24;
+  b.cyl(0.022, 0.2, ex, y, -ez, 0x6b6b6b, 6);
+  b.cyl(0.17, 0.07, ex, y + 0.2, -ez, 0xd2452f, 8, 0.02);
+  b.ico(0.09, -ex, y, ez, 0x4a7c3a);
+  b.ico(0.08, -ex, y, -ez, 0x57864a);
+  b.box(0.22, 0.05, 0.08, ex * 0.3, y, ez, 0x8a7d63);
+}
+
 const LEAF = [0x4a7c3a, 0x57864a, 0x3f6b35, 0x6b9550];
 const LOT_CORNERS: ReadonlyArray<readonly [number, number]> = [
   [-0.36, -0.36], [0.36, -0.36], [0.36, 0.36], [-0.36, 0.36],
@@ -303,7 +314,11 @@ function tower(b: MeshBuilder, zone: Zone, level: number, variant: number): void
   const roofC = ROOF_GREY[variant % 3];
   b.box(w * 0.99, 0.05, d * 0.99, 0, 0.05 + top, 0, roofC);
   parapet(b, w, d, 0.05 + top, roofC);
-  roofDetails(b, w, d, 0.05 + top + 0.05, variant, wall);
+  if (isComm && variant % 3 === 2) {
+    roofTerrace(b, w, d, 0.05 + top + 0.05);
+  } else {
+    roofDetails(b, w, d, 0.05 + top + 0.05, variant, wall);
+  }
 }
 
 /** Wide, low industrial shed — flat or gable roofed, with stacks and vents. */

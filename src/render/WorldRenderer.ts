@@ -65,7 +65,7 @@ export class WorldRenderer {
     this.scene.background = new THREE.Color(0x9fc8e8);
     this.scene.fog = new THREE.Fog(0x9fc8e8, 140, 320);
 
-    const hemi = new THREE.HemisphereLight(0xfdf6e3, 0x4a5a6a, 1.05);
+    const hemi = new THREE.HemisphereLight(0xfdf6e3, 0x5d5a52, 1.05);
     const sun = new THREE.DirectionalLight(0xfff1d0, 1.85);
     sun.position.set(60, 90, 30);
     this.scene.add(hemi, sun);
