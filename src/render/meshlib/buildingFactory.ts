@@ -87,7 +87,13 @@ export class MeshBuilder {
     this.tri(B, C2, B2, color);
   }
 
-  private tri(a: V, b: V, c: V, color: number): void {
+  /** Quad a→b→c→d, wound CCW so the face normal points outward. */
+  quad(a: V, b: V, c: V, d: V, color: number): void {
+    this.tri(a, b, c, color);
+    this.tri(a, c, d, color);
+  }
+
+  tri(a: V, b: V, c: V, color: number): void {
     const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2];
     const vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
     let nx = uy * vz - uz * vy;
@@ -326,39 +332,73 @@ function tower(b: MeshBuilder, zone: Zone, level: number, variant: number): void
   }
 }
 
-/** Wide, low industrial shed — flat or gable roofed, with stacks and vents. */
+/** A glazed sawtooth factory roof — teeth running across the X axis. */
+function sawtoothRoof(b: MeshBuilder, w: number, d: number, y: number, roofC: number): void {
+  const teeth = 4;
+  const tw = w / teeth;
+  const th = 0.24;
+  const hd = d / 2;
+  for (let k = 0; k < teeth; k++) {
+    const xL = -w / 2 + k * tw;
+    const xR = xL + tw;
+    b.quad(
+      [xL, y, -hd], [xL, y, hd], [xL, y + th, hd], [xL, y + th, -hd], GLASS,
+    );
+    b.quad(
+      [xL, y + th, -hd], [xL, y + th, hd], [xR, y, hd], [xR, y, -hd], roofC,
+    );
+    b.tri([xL, y, -hd], [xL, y + th, -hd], [xR, y, -hd], roofC);
+    b.tri([xL, y, hd], [xR, y, hd], [xL, y + th, hd], roofC);
+  }
+}
+
+/**
+ * Industrial building. The variant selects the form: low sheds, gabled or
+ * sawtooth-roofed factories, and a taller block with an annex — with stacks,
+ * vents and a rooftop water tank for variety.
+ */
 function industrial(b: MeshBuilder, level: number, variant: number): void {
   const wall = IND_WALL[variant % 4];
   const floors = Math.max(1, level);
   const fh = 0.44;
-  const w = 0.78 + (variant % 2) * 0.06;
+  const w = 0.76 + (variant % 3) * 0.05;
   const d = 0.74;
   const top = floors * fh;
+  const roofC = ROOF_GREY[variant % 3];
 
   b.box(w + 0.08, 0.09, d + 0.08, 0, 0, 0, FOUND);
   b.box(w, top, d, 0, 0.05, 0, wall);
-
-  for (let f = 0; f < floors; f++) {
-    if (f === floors - 1) {
-      windowBand(b, w, d, 0.05 + f * fh + fh * 0.32, fh * 0.34, GLASS);
-    }
-  }
+  windowBand(b, w, d, 0.05 + (floors - 1) * fh + fh * 0.32, fh * 0.34, GLASS);
   b.box(0.34, 0.36, 0.05, 0, 0.05, -d / 2, TRIM);
 
-  const roofC = ROOF_GREY[variant % 3];
-  if (variant === 3 || variant === 5) {
-    b.gable(w + 0.06, 0.3, d + 0.06, 0, 0.05 + top, 0, roofC);
-  } else {
-    b.box(w * 0.99, 0.05, d * 0.99, 0, 0.05 + top, 0, roofC);
-    parapet(b, w, d, 0.05 + top, roofC);
+  // A low annex block beside the main hall on some variants.
+  if (variant === 1 || variant === 4) {
+    b.box(w * 0.5, fh * 0.8, d * 0.6, w * 0.42, 0.05, d * 0.16, wall);
   }
 
-  const y = 0.05 + top + 0.06;
-  if (variant % 2 === 0) {
-    b.cyl(0.08, 0.5, w * 0.3, 0.05 + top, d * 0.28, 0x9a4b3b);
+  const roofY = 0.05 + top;
+  if (variant === 1 || variant === 4) {
+    sawtoothRoof(b, w, d, roofY, roofC);
+  } else if (variant === 3 || variant === 5) {
+    b.gable(w + 0.06, 0.3, d + 0.06, 0, roofY, 0, roofC);
+  } else {
+    b.box(w * 0.99, 0.05, d * 0.99, 0, roofY, 0, roofC);
+    parapet(b, w, d, roofY, roofC);
   }
-  b.cyl(0.06, 0.18, -w * 0.28, y, d * 0.2, METAL, 6);
-  b.box(0.18, 0.1, 0.14, w * 0.1, y, -d * 0.25, METAL);
+
+  const y = roofY + 0.06;
+  if (variant % 2 === 0) {
+    b.cyl(0.08, 0.5, -w * 0.32, roofY, d * 0.28, 0x9a4b3b);
+  }
+  if (variant === 2 || variant === 5) {
+    // Rooftop water tank on legs.
+    b.cyl(0.13, 0.2, w * 0.26, roofY + 0.16, -d * 0.2, 0x8a7d63, 10);
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+      b.box(0.03, 0.16, 0.03, w * 0.26 + sx * 0.08, roofY, -d * 0.2 + sz * 0.08, METAL);
+    }
+  }
+  b.cyl(0.06, 0.18, w * 0.3, y, d * 0.22, METAL, 6);
+  b.box(0.18, 0.1, 0.14, -w * 0.12, y, -d * 0.25, METAL);
 }
 
 /* ---- entry point ------------------------------------------------------- */
