@@ -48,10 +48,9 @@ function tileTopY(city: CityData, i: number): number {
 function tileColor(city: CityData, i: number, out: THREE.Color): void {
   const type = city.terrainType[i];
   if (type === TerrainType.Water) {
-    out.setHex(0x2f6ea5);
-    return;
-  }
-  if (type === TerrainType.Rock) {
+    // Lighter shallows where water laps the shore, deeper blue offshore.
+    out.setHex(touchesLand(city, i) ? 0x4791b5 : 0x2f6ea5);
+  } else if (type === TerrainType.Rock) {
     out.setHex(0x8b8784);
   } else {
     const t = city.elevation[i] / 8;
@@ -69,16 +68,24 @@ const _lerpTarget = new THREE.Color();
 
 /** True if any 4-neighbour of tile `i` is water. */
 function touchesWater(city: CityData, i: number): boolean {
+  return hasNeighbor(city, i, true);
+}
+
+/** True if any 4-neighbour of tile `i` is land (non-water). */
+function touchesLand(city: CityData, i: number): boolean {
+  return hasNeighbor(city, i, false);
+}
+
+/** True if any 4-neighbour of `i` is (or isn't, per `water`) a water tile. */
+function hasNeighbor(city: CityData, i: number, water: boolean): boolean {
   const { grid } = city;
   const x = grid.x(i);
   const y = grid.y(i);
   for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-    if (
-      grid.inBounds(x + dx, y + dy) &&
-      city.terrainType[grid.index(x + dx, y + dy)] === TerrainType.Water
-    ) {
-      return true;
-    }
+    if (!grid.inBounds(x + dx, y + dy)) continue;
+    const isWater =
+      city.terrainType[grid.index(x + dx, y + dy)] === TerrainType.Water;
+    if (isWater === water) return true;
   }
   return false;
 }
