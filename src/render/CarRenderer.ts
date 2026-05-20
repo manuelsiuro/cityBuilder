@@ -93,7 +93,7 @@ function wheels(b: MeshBuilder, w: number, l: number): void {
 }
 
 /** A low-poly sedan: chassis, raised cabin, glazing band, four wheels. */
-function sedanGeometry(): THREE.BufferGeometry {
+export function sedanGeometry(): THREE.BufferGeometry {
   const b = new MeshBuilder();
   const w = 0.3;
   const l = 0.54;
@@ -105,7 +105,7 @@ function sedanGeometry(): THREE.BufferGeometry {
 }
 
 /** A tall delivery van with a front cab and glazing. */
-function vanGeometry(): THREE.BufferGeometry {
+export function vanGeometry(): THREE.BufferGeometry {
   const b = new MeshBuilder();
   const w = 0.32;
   const l = 0.56;
@@ -119,7 +119,7 @@ function vanGeometry(): THREE.BufferGeometry {
 }
 
 /** A box truck: cab up front, tall cargo box behind, six wheels. */
-function truckGeometry(): THREE.BufferGeometry {
+export function truckGeometry(): THREE.BufferGeometry {
   const b = new MeshBuilder();
   const w = 0.32;
   const l = 0.62;

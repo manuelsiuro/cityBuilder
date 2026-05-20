@@ -118,7 +118,7 @@ function finalize(mesh: THREE.InstancedMesh, count: number): void {
 }
 
 /** Power plant: turbine hall, hyperboloid cooling tower and a striped stack. */
-function plantGeometry(): THREE.BufferGeometry {
+export function plantGeometry(): THREE.BufferGeometry {
   const b = new MeshBuilder();
   b.box(0.86, 0.1, 0.86, 0, 0, 0, 0xb7b1a4);
   b.box(0.5, 0.46, 0.78, -0.16, 0.08, 0, 0xa9aeb4);
@@ -137,7 +137,7 @@ function plantGeometry(): THREE.BufferGeometry {
 }
 
 /** Water pump: pump house, sloped roof, rooftop tank and an outlet pipe. */
-function pumpGeometry(): THREE.BufferGeometry {
+export function pumpGeometry(): THREE.BufferGeometry {
   const b = new MeshBuilder();
   b.box(0.62, 0.09, 0.62, 0, 0, 0, 0xb7b1a4);
   b.box(0.5, 0.36, 0.5, 0, 0.07, 0, 0x6f93a8);
@@ -151,7 +151,7 @@ function pumpGeometry(): THREE.BufferGeometry {
 }
 
 /** Slim utility pole: post, crossarm and two insulators. */
-function pylonGeometry(): THREE.BufferGeometry {
+export function pylonGeometry(): THREE.BufferGeometry {
   const b = new MeshBuilder();
   b.box(0.07, 0.82, 0.07, 0, 0, 0, 0x6b5b4a);
   b.box(0.46, 0.06, 0.07, 0, 0.66, 0, 0x6b5b4a);

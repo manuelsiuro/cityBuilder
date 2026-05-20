@@ -555,3 +555,10 @@ export function createBuildingGeometry(
   }
   return b.build();
 }
+
+/** A standalone tree as its own geometry — used by the sandbox gallery. */
+export function treeGeometry(variant: number): THREE.BufferGeometry {
+  const b = new MeshBuilder();
+  tree(b, 0, 0, variant);
+  return b.build();
+}

@@ -1,5 +1,6 @@
 import { World } from "../sim/World";
 import { WorldRenderer } from "../render/WorldRenderer";
+import { SandboxGallery } from "../render/SandboxGallery";
 import { Picker } from "../render/Picker";
 import { Input } from "../input/Input";
 import { ToolController } from "../input/ToolController";
@@ -31,6 +32,9 @@ export class App {
   private picker?: Picker;
   private hoverTile: { x: number; y: number } | null = null;
   private uiCaptured = false;
+  /** When true, the app shows the read-only model gallery instead of the game. */
+  private readonly sandbox = new URLSearchParams(window.location.search).has("sandbox");
+  private sandboxButton?: HTMLButtonElement;
 
   constructor(mount: HTMLElement) {
     const world = new World(Date.now() >>> 0);
@@ -58,6 +62,10 @@ export class App {
   }
 
   async start(): Promise<void> {
+    if (this.sandbox) {
+      this.startSandbox();
+      return;
+    }
     const { world, renderer } = this.ctx;
     renderer.buildCity(world.city);
 
@@ -112,6 +120,62 @@ export class App {
         renderer.render();
       },
     };
+  }
+
+  /** Build the read-only model gallery and run it under a minimal state. */
+  private startSandbox(): void {
+    const { renderer } = this.ctx;
+    const gallery = new SandboxGallery();
+    const ext = gallery.build(renderer.scene);
+    renderer.isoCamera.setMapExtent(ext.halfW, ext.halfH);
+    renderer.isoCamera.zoomBy(0.65);
+    this.addLabelToggle(gallery);
+    this.ctx.states.transitionTo(this.createSandboxState());
+    this.ctx.loop.start();
+  }
+
+  /** A floating button that shows or hides the gallery's model labels. */
+  private addLabelToggle(gallery: SandboxGallery): void {
+    const btn = document.createElement("button");
+    btn.textContent = "Hide labels";
+    btn.style.cssText =
+      "position:fixed;top:12px;right:12px;z-index:10;padding:8px 14px;" +
+      "font:600 13px ui-sans-serif,system-ui,sans-serif;color:#eef2f6;" +
+      "background:#222833;border:2px solid #2c333f;border-radius:8px;cursor:pointer;";
+    let visible = true;
+    btn.addEventListener("click", () => {
+      visible = !visible;
+      gallery.setLabelsVisible(visible);
+      btn.textContent = visible ? "Hide labels" : "Show labels";
+    });
+    document.body.appendChild(btn);
+    this.sandboxButton = btn;
+  }
+
+  private createSandboxState(): GameStateHandler {
+    const { renderer } = this.ctx;
+    return {
+      name: "sandbox",
+      enter: () => {
+        this.input = new Input(renderer.canvas);
+        this.wireSandboxInput();
+      },
+      onRenderFrame: (dtMs) => {
+        this.applyKeyboardPan(dtMs);
+        renderer.update(dtMs);
+        renderer.render();
+      },
+    };
+  }
+
+  /** Camera-only input for the gallery: pan, zoom, rotate — no tools, no UI. */
+  private wireSandboxInput(): void {
+    if (!this.input) return;
+    const { renderer } = this.ctx;
+    const ev = this.input.events;
+    ev.on("drag", ({ dx, dy }) => renderer.isoCamera.panByPixels(dx, dy));
+    ev.on("zoom", ({ factor }) => renderer.isoCamera.zoomBy(factor));
+    ev.on("rotate", ({ dir }) => renderer.isoCamera.rotate(dir));
   }
 
   private wireInput(): void {
@@ -240,6 +304,10 @@ export class App {
 
   private updateHud(): void {
     if (!this.hud) return;
+    if (this.sandbox) {
+      this.hud.textContent = "Sandbox gallery — drag to pan · scroll to zoom · rotate to spin";
+      return;
+    }
     const { loop, world } = this.ctx;
     const speed = loop.speedMultiplier === 0 ? "paused" : `${loop.speedMultiplier}×`;
     const tile = this.hoverTile ? ` · tile ${this.hoverTile.x},${this.hoverTile.y}` : "";
@@ -255,6 +323,7 @@ export class App {
     window.removeEventListener("keydown", this.onKeyDown);
     this.input?.dispose();
     this.ui.dispose();
+    this.sandboxButton?.remove();
     this.ctx.renderer.dispose();
   }
 }
