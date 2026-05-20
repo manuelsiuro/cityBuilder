@@ -12,10 +12,11 @@ const DIRS = [
 ] as const;
 
 /**
- * Renders the road layer with four `InstancedMesh`es: a dark asphalt slab per
+ * Renders the road layer with five `InstancedMesh`es: a dark asphalt slab per
  * road tile, dashed centre-line stubs pointing at each connected neighbour
  * (they meet across edges as a lane line), raised concrete kerbs along every
- * edge that borders a non-road tile, and street lamps dotted along the kerbs.
+ * edge that borders a non-road tile, zebra crosswalks on intersection arms,
+ * and street lamps dotted along the kerbs.
  */
 export class RoadInstances {
   readonly group = new THREE.Group();
@@ -23,17 +24,20 @@ export class RoadInstances {
   private readonly asphalt: THREE.InstancedMesh;
   private readonly markings: THREE.InstancedMesh;
   private readonly kerbs: THREE.InstancedMesh;
+  private readonly crosswalks: THREE.InstancedMesh;
   private readonly lamps: THREE.InstancedMesh;
   private readonly lampMaterial: THREE.MeshStandardMaterial;
   private readonly maxRoad: number;
   private readonly maxMark: number;
   private readonly maxKerb: number;
+  private readonly maxCross: number;
   private readonly dummy = new THREE.Object3D();
 
   constructor(city: CityData) {
     this.maxRoad = city.grid.size;
     this.maxMark = city.grid.size * 8;
     this.maxKerb = city.grid.size * 4;
+    this.maxCross = city.grid.size * 8;
 
     const asphaltGeo = new THREE.BoxGeometry(TILE * 0.98, 0.09, TILE * 0.98);
     const asphaltMat = new THREE.MeshStandardMaterial({ color: 0x303339, roughness: 0.95 });
@@ -50,6 +54,11 @@ export class RoadInstances {
     this.kerbs = new THREE.InstancedMesh(kerbGeo, kerbMat, this.maxKerb);
     this.kerbs.frustumCulled = false;
 
+    const crossGeo = new THREE.BoxGeometry(TILE * 0.5, 0.045, 0.075);
+    const crossMat = new THREE.MeshStandardMaterial({ color: 0xeef0f2, roughness: 0.7 });
+    this.crosswalks = new THREE.InstancedMesh(crossGeo, crossMat, this.maxCross);
+    this.crosswalks.frustumCulled = false;
+
     this.lampMaterial = new THREE.MeshStandardMaterial({
       vertexColors: true,
       roughness: 0.7,
@@ -58,7 +67,7 @@ export class RoadInstances {
     this.lamps = new THREE.InstancedMesh(lampGeometry(), this.lampMaterial, this.maxRoad);
     this.lamps.frustumCulled = false;
 
-    this.group.add(this.asphalt, this.markings, this.kerbs, this.lamps);
+    this.group.add(this.asphalt, this.markings, this.kerbs, this.crosswalks, this.lamps);
     this.rebuild(city);
   }
 
@@ -68,6 +77,7 @@ export class RoadInstances {
     let roadN = 0;
     let markN = 0;
     let kerbN = 0;
+    let crossN = 0;
     let lampN = 0;
 
     for (let ty = 0; ty < grid.height; ty++) {
@@ -83,6 +93,15 @@ export class RoadInstances {
         this.dummy.rotation.set(0, 0, 0);
         this.dummy.updateMatrix();
         this.asphalt.setMatrixAt(roadN++, this.dummy.matrix);
+
+        // A tile with three or more road neighbours is a junction.
+        let conns = 0;
+        for (const d of DIRS) {
+          const nx = tx + d.dx;
+          const ny = ty + d.dz;
+          if (grid.inBounds(nx, ny) && city.road[grid.index(nx, ny)] !== 0) conns++;
+        }
+        const junction = conns >= 3;
 
         for (const d of DIRS) {
           const nx = tx + d.dx;
@@ -102,6 +121,20 @@ export class RoadInstances {
               this.dummy.rotation.set(0, d.rot, 0);
               this.dummy.updateMatrix();
               this.markings.setMatrixAt(markN++, this.dummy.matrix);
+            }
+            // Zebra crosswalk striping each junction arm.
+            if (junction) {
+              for (const t of [0.16, 0.25, 0.34, 0.43]) {
+                if (crossN >= this.maxCross) continue;
+                this.dummy.position.set(
+                  cx + d.dx * TILE * t,
+                  y + 0.032,
+                  cz + d.dz * TILE * t,
+                );
+                this.dummy.rotation.set(0, d.rot, 0);
+                this.dummy.updateMatrix();
+                this.crosswalks.setMatrixAt(crossN++, this.dummy.matrix);
+              }
             }
           } else if (kerbN < this.maxKerb) {
             // Raised kerb along an edge that faces grass or the map border.
@@ -136,20 +169,23 @@ export class RoadInstances {
     this.asphalt.count = roadN;
     this.markings.count = markN;
     this.kerbs.count = kerbN;
+    this.crosswalks.count = crossN;
     this.lamps.count = lampN;
     this.asphalt.instanceMatrix.needsUpdate = true;
     this.markings.instanceMatrix.needsUpdate = true;
     this.kerbs.instanceMatrix.needsUpdate = true;
+    this.crosswalks.instanceMatrix.needsUpdate = true;
     this.lamps.instanceMatrix.needsUpdate = true;
   }
 
   dispose(): void {
-    for (const m of [this.asphalt, this.markings, this.kerbs, this.lamps]) {
+    for (const m of [this.asphalt, this.markings, this.kerbs, this.crosswalks, this.lamps]) {
       m.geometry.dispose();
     }
     (this.asphalt.material as THREE.Material).dispose();
     (this.markings.material as THREE.Material).dispose();
     (this.kerbs.material as THREE.Material).dispose();
+    (this.crosswalks.material as THREE.Material).dispose();
     this.lampMaterial.dispose();
   }
 }
