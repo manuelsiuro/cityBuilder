@@ -2,11 +2,11 @@ import * as THREE from "three";
 import type { CityData } from "../sim/CityData";
 import { Zone } from "../sim/layers";
 import { MAX_BUILD_LEVEL } from "../sim/development";
-import { createBuildingGeometry } from "./meshlib/buildingFactory";
+import { createBuildingGeometry, BUILDING_VARIANTS } from "./meshlib/buildingFactory";
 import { tileCenterX, tileCenterZ, tileSurfaceY } from "./constants";
 
 const ZONES = [Zone.Residential, Zone.Commercial, Zone.Industrial] as const;
-const ARCHETYPES = ZONES.length * MAX_BUILD_LEVEL;
+const ARCHETYPES = ZONES.length * MAX_BUILD_LEVEL * BUILDING_VARIANTS;
 
 /**
  * Renders developed zone buildings as instanced low-poly meshes — one
@@ -31,7 +31,9 @@ export class BuildingInstances {
     });
     for (let z = 0; z < ZONES.length; z++) {
       for (let level = 1; level <= MAX_BUILD_LEVEL; level++) {
-        this.geometries.push(createBuildingGeometry(ZONES[z], level));
+        for (let v = 0; v < BUILDING_VARIANTS; v++) {
+          this.geometries.push(createBuildingGeometry(ZONES[z], level, v));
+        }
       }
     }
   }
@@ -78,8 +80,8 @@ export class BuildingInstances {
         tileCenterZ(ty, grid),
       );
       this.dummy.rotation.set(0, (h & 3) * (Math.PI / 2), 0);
-      const footprint = 0.94 + ((h >>> 2) % 12) / 100;
-      const heightScale = 0.9 + ((h >>> 6) % 22) / 100;
+      const footprint = 0.97 + ((h >>> 2) % 7) / 100;
+      const heightScale = 0.98 + ((h >>> 6) % 9) / 100;
       this.dummy.scale.set(footprint, heightScale, footprint);
       this.dummy.updateMatrix();
 
@@ -103,21 +105,21 @@ export class BuildingInstances {
   }
 }
 
-/** Archetype index for a tile's building, or -1 if it has none. */
+/** Archetype index (zone × level × variant) for a tile's building, or -1. */
 function archetypeKey(city: CityData, i: number): number {
   const level = city.buildLevel[i];
   if (level === 0 || city.buildingId[i] !== 0) return -1;
   const clamped = Math.min(level, MAX_BUILD_LEVEL);
+  let zoneIdx: number;
   switch (city.zone[i]) {
-    case Zone.Residential:
-      return 0 * MAX_BUILD_LEVEL + (clamped - 1);
-    case Zone.Commercial:
-      return 1 * MAX_BUILD_LEVEL + (clamped - 1);
-    case Zone.Industrial:
-      return 2 * MAX_BUILD_LEVEL + (clamped - 1);
-    default:
-      return -1;
+    case Zone.Residential: zoneIdx = 0; break;
+    case Zone.Commercial: zoneIdx = 1; break;
+    case Zone.Industrial: zoneIdx = 2; break;
+    default: return -1;
   }
+  const base = zoneIdx * MAX_BUILD_LEVEL + (clamped - 1);
+  const variant = hash(city.grid.x(i), city.grid.y(i)) % BUILDING_VARIANTS;
+  return base * BUILDING_VARIANTS + variant;
 }
 
 /** Deterministic per-tile hash for placement variety. */

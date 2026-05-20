@@ -26,15 +26,15 @@ export class RoadInstances {
 
   constructor(city: CityData) {
     this.maxRoad = city.grid.size;
-    this.maxMark = city.grid.size * 3;
+    this.maxMark = city.grid.size * 8;
 
-    const asphaltGeo = new THREE.BoxGeometry(TILE * 0.98, 0.08, TILE * 0.98);
-    const asphaltMat = new THREE.MeshStandardMaterial({ color: 0x34373d, roughness: 0.93 });
+    const asphaltGeo = new THREE.BoxGeometry(TILE * 0.98, 0.09, TILE * 0.98);
+    const asphaltMat = new THREE.MeshStandardMaterial({ color: 0x303339, roughness: 0.95 });
     this.asphalt = new THREE.InstancedMesh(asphaltGeo, asphaltMat, this.maxRoad);
     this.asphalt.frustumCulled = false;
 
-    const markGeo = new THREE.BoxGeometry(0.1, 0.03, TILE * 0.52);
-    const markMat = new THREE.MeshStandardMaterial({ color: 0xd8c45a, roughness: 0.8 });
+    const markGeo = new THREE.BoxGeometry(0.09, 0.035, TILE * 0.2);
+    const markMat = new THREE.MeshStandardMaterial({ color: 0xe6e3d6, roughness: 0.75 });
     this.markings = new THREE.InstancedMesh(markGeo, markMat, this.maxMark);
     this.markings.frustumCulled = false;
 
@@ -66,15 +66,18 @@ export class RoadInstances {
           const nx = tx + d.dx;
           const ny = ty + d.dz;
           if (!grid.inBounds(nx, ny) || city.road[grid.index(nx, ny)] === 0) continue;
-          if (markN >= this.maxMark) continue;
-          this.dummy.position.set(
-            cx + d.dx * TILE * 0.26,
-            y + 0.03,
-            cz + d.dz * TILE * 0.26,
-          );
-          this.dummy.rotation.set(0, d.rot, 0);
-          this.dummy.updateMatrix();
-          this.markings.setMatrixAt(markN++, this.dummy.matrix);
+          // Two dashes per connected arm — they meet across edges as a lane line.
+          for (const t of [0.15, 0.36]) {
+            if (markN >= this.maxMark) continue;
+            this.dummy.position.set(
+              cx + d.dx * TILE * t,
+              y + 0.03,
+              cz + d.dz * TILE * t,
+            );
+            this.dummy.rotation.set(0, d.rot, 0);
+            this.dummy.updateMatrix();
+            this.markings.setMatrixAt(markN++, this.dummy.matrix);
+          }
         }
       }
     }
