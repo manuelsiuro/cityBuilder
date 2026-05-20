@@ -30,7 +30,7 @@ const IND_WALL = [0x9c9588, 0x8c8478, 0xafa898, 0x86907d];
 /* ---- mesh builder ------------------------------------------------------ */
 
 /** Accumulates flat-shaded, vertex-coloured triangles into one geometry. */
-class MeshBuilder {
+export class MeshBuilder {
   private readonly pos: number[] = [];
   private readonly nrm: number[] = [];
   private readonly col: number[] = [];
@@ -44,9 +44,18 @@ class MeshBuilder {
     g.dispose();
   }
 
-  /** Vertical cylinder; `y` is the base height. */
-  cyl(r: number, h: number, x: number, y: number, z: number, color: number, seg = 8): void {
-    const g = new THREE.CylinderGeometry(r, r, h, seg);
+  /** Vertical cylinder; `y` is the base height. `rTop` defaults to `r`. */
+  cyl(
+    r: number,
+    h: number,
+    x: number,
+    y: number,
+    z: number,
+    color: number,
+    seg = 8,
+    rTop = r,
+  ): void {
+    const g = new THREE.CylinderGeometry(rTop, r, h, seg);
     g.translate(x, y + h / 2, z);
     this.merge(g, color);
     g.dispose();
