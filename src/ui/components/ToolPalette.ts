@@ -1,11 +1,13 @@
-import { Container, Graphics, Text } from "pixi.js";
+import { Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
 import type { Tool } from "../../input/ToolController";
 
-const BTN_W = 92;
-const BTN_H = 46;
-const GAP = 4;
+const BTN_W = 80;
+const BTN_H = 68;
+const ICON = 42;
+const GAP = 5;
 const GROUP_GAP = 16;
-const MARGIN = 18;
+const MARGIN = 16;
+const PAD = 10;
 
 interface ToolDef {
   tool: Tool;
@@ -42,18 +44,29 @@ interface ScreenRect {
   h: number;
 }
 
+/** Icon textures keyed by tool name; missing entries fall back to text only. */
+export type ToolIcons = Partial<Record<Tool, Texture>>;
+
 /**
- * Bottom-docked, grouped row of build-tool buttons. Rendered with PixiJS;
+ * Bottom-docked, grouped row of build-tool buttons. Each button stacks a
+ * generated glyph above its label on a dark panel. Rendered with PixiJS;
  * hit-testing is driven externally by the input system.
  */
 export class ToolPalette {
   readonly container = new Container();
 
+  private readonly panel = new Graphics();
+  private readonly row = new Container();
   private readonly buttons: PaletteButton[] = [];
   private readonly rects = new Map<Tool, ScreenRect>();
   private active: Tool = "inspect";
 
-  constructor(private readonly onSelect: (tool: Tool) => void) {
+  constructor(
+    private readonly onSelect: (tool: Tool) => void,
+    icons: ToolIcons = {},
+  ) {
+    this.container.addChild(this.panel, this.row);
+
     let x = 0;
     let prevGroup = TOOLS[0].group;
     for (const def of TOOLS) {
@@ -61,11 +74,11 @@ export class ToolPalette {
         x += GROUP_GAP - GAP;
         prevGroup = def.group;
       }
-      const btn = this.makeButton(def);
+      const btn = this.makeButton(def, icons[def.tool]);
       btn.localX = x;
       btn.container.x = x;
       this.buttons.push(btn);
-      this.container.addChild(btn.container);
+      this.row.addChild(btn.container);
       x += BTN_W + GAP;
     }
     this.refresh();
@@ -76,16 +89,27 @@ export class ToolPalette {
     const totalW = this.buttons.length > 0
       ? this.buttons[this.buttons.length - 1].localX + BTN_W
       : 0;
-    const scale = Math.min(1, (screenW - 24) / totalW);
-    this.container.scale.set(scale);
-    this.container.x = Math.round((screenW - totalW * scale) / 2);
-    this.container.y = Math.round(screenH - BTN_H * scale - MARGIN);
+    const scale = Math.min(1, (screenW - 24) / (totalW + PAD * 2));
+    this.row.scale.set(scale);
+    this.panel.scale.set(scale);
+
+    const drawnW = (totalW + PAD * 2) * scale;
+    this.container.x = Math.round((screenW - drawnW) / 2);
+    this.container.y = Math.round(screenH - (BTN_H + PAD * 2) * scale - MARGIN);
+    this.row.x = PAD;
+    this.row.y = PAD;
+
+    this.panel
+      .clear()
+      .roundRect(0, 0, totalW + PAD * 2, BTN_H + PAD * 2, 14)
+      .fill({ color: 0x161a22, alpha: 0.92 })
+      .stroke({ width: 2, color: 0x2c333f });
 
     this.rects.clear();
     for (const b of this.buttons) {
       this.rects.set(b.def.tool, {
-        x: this.container.x + b.localX * scale,
-        y: this.container.y,
+        x: this.container.x + (PAD + b.localX) * scale,
+        y: this.container.y + PAD * scale,
         w: BTN_W * scale,
         h: BTN_H * scale,
       });
@@ -110,44 +134,52 @@ export class ToolPalette {
     this.refresh();
   }
 
-  private makeButton(def: ToolDef): PaletteButton {
+  private makeButton(def: ToolDef, icon?: Texture): PaletteButton {
     const container = new Container();
     const bg = new Graphics();
+    container.addChild(bg);
+
+    if (icon) {
+      const sprite = new Sprite(icon);
+      sprite.anchor.set(0.5);
+      const s = ICON / Math.max(sprite.texture.width, sprite.texture.height, 1);
+      sprite.scale.set(s);
+      sprite.x = BTN_W / 2;
+      sprite.y = ICON / 2 + 8;
+      container.addChild(sprite);
+    }
+
     const label = new Text({
       text: def.label,
       style: {
-        fill: 0xffffff,
-        fontSize: 14,
+        fill: 0xeef2f6,
+        fontSize: 12,
         fontFamily: "ui-sans-serif, system-ui, sans-serif",
         fontWeight: "600",
       },
     });
     label.anchor.set(0.5);
     label.x = BTN_W / 2;
-    label.y = BTN_H / 2;
-    container.addChild(bg, label);
+    label.y = BTN_H - 13;
+    container.addChild(label);
     return { def, container, bg, label, localX: 0 };
   }
 
   private refresh(): void {
     for (const b of this.buttons) {
       const on = b.def.tool === this.active;
-      const idle = b.def.accent !== undefined ? dim(b.def.accent) : 0x2b313c;
-      const border = b.def.accent ?? 0x47505f;
+      const accent = b.def.accent ?? 0x6b7686;
       b.bg
         .clear()
-        .roundRect(0, 0, BTN_W, BTN_H, 9)
-        .fill(on ? 0xf0a23a : idle)
-        .stroke({ width: 2, color: on ? 0xffce7a : border });
-      b.label.style.fill = on ? 0x1a1407 : 0xeef2f6;
+        .roundRect(0, 0, BTN_W, BTN_H, 10)
+        .fill(on ? 0x2f3744 : 0x222833)
+        .stroke({ width: on ? 3 : 2, color: on ? 0xf0a23a : accent });
+      if (on) {
+        b.bg
+          .roundRect(2, 2, BTN_W - 4, BTN_H - 4, 8)
+          .stroke({ width: 1, color: 0xffce7a, alpha: 0.5 });
+      }
+      b.label.style.fill = on ? 0xffce7a : 0xc6cdd6;
     }
   }
-}
-
-/** Darken an accent colour for an idle button background. */
-function dim(hex: number): number {
-  const r = ((hex >> 16) & 0xff) * 0.32;
-  const g = ((hex >> 8) & 0xff) * 0.32;
-  const b = (hex & 0xff) * 0.32;
-  return (r << 16) | (g << 8) | b;
 }

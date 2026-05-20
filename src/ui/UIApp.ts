@@ -1,5 +1,5 @@
-import { Application, Text } from "pixi.js";
-import { ToolPalette } from "./components/ToolPalette";
+import { Application, Assets, Text } from "pixi.js";
+import { ToolPalette, type ToolIcons } from "./components/ToolPalette";
 import { OverlayButton, type OverlayChoice } from "./components/OverlayButton";
 import { RciWidget } from "./components/RciWidget";
 import { BudgetBar } from "./components/BudgetBar";
@@ -52,7 +52,7 @@ export class UIApp {
     canvas.style.zIndex = "5";
     document.body.appendChild(canvas);
 
-    this.palette = new ToolPalette(cb.onSelectTool);
+    this.palette = new ToolPalette(cb.onSelectTool, await loadToolIcons());
     this.overlay = new OverlayButton(cb.onOverlayChange);
     this.system = new SystemBar(cb.onSystemAction);
     this.rci = new RciWidget();
@@ -157,4 +157,25 @@ export class UIApp {
   }
 
   private onResize = (): void => this.layout();
+}
+
+/** Tools whose glyphs live in `public/assets/icons/<tool>.png`. */
+const ICON_TOOLS: Tool[] = [
+  "inspect", "road", "bulldoze", "zoneR", "zoneC", "zoneI",
+  "powerLine", "powerPlant", "pipe", "waterPump",
+];
+
+/** Load the generated tool glyphs; a missing icon falls back to text only. */
+async function loadToolIcons(): Promise<ToolIcons> {
+  const icons: ToolIcons = {};
+  await Promise.all(
+    ICON_TOOLS.map(async (tool) => {
+      try {
+        icons[tool] = await Assets.load(`/assets/icons/${tool}.png`);
+      } catch {
+        /* no glyph — ToolPalette renders the label alone */
+      }
+    }),
+  );
+  return icons;
 }
