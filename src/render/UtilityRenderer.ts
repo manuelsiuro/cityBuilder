@@ -92,7 +92,8 @@ export class UtilityRenderer {
     const mesh = new THREE.InstancedMesh(geo, this.material, max);
     mesh.count = 0;
     mesh.frustumCulled = false;
-    mesh.castShadow = false;
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
     return mesh;
   }
 

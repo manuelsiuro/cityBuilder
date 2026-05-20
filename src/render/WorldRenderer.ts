@@ -59,15 +59,29 @@ export class WorldRenderer {
   constructor(private readonly mount: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     mount.appendChild(this.renderer.domElement);
 
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x9fc8e8);
     this.scene.fog = new THREE.Fog(0x9fc8e8, 140, 320);
 
-    const hemi = new THREE.HemisphereLight(0xfdf6e3, 0x5d5a52, 1.05);
+    const hemi = new THREE.HemisphereLight(0xfdf6e3, 0x5d5a52, 1.0);
     const sun = new THREE.DirectionalLight(0xfff1d0, 1.85);
     sun.position.set(60, 90, 30);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(4096, 4096);
+    sun.shadow.bias = -0.0005;
+    sun.shadow.normalBias = 0.05;
+    const sc = sun.shadow.camera;
+    sc.left = -78;
+    sc.right = 78;
+    sc.top = 78;
+    sc.bottom = -78;
+    sc.near = 20;
+    sc.far = 320;
+    sc.updateProjectionMatrix();
     this.scene.add(hemi, sun);
 
     this.highlight = makeHighlight();

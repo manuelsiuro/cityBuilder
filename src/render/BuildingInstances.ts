@@ -60,7 +60,8 @@ export class BuildingInstances {
       }
       const mesh = new THREE.InstancedMesh(this.geometries[k], this.material, counts[k]);
       mesh.frustumCulled = false;
-      mesh.castShadow = false;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
       this.meshes[k] = mesh;
       this.group.add(mesh);
     }

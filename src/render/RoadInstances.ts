@@ -43,6 +43,7 @@ export class RoadInstances {
     const asphaltMat = new THREE.MeshStandardMaterial({ color: 0x303339, roughness: 0.95 });
     this.asphalt = new THREE.InstancedMesh(asphaltGeo, asphaltMat, this.maxRoad);
     this.asphalt.frustumCulled = false;
+    this.asphalt.receiveShadow = true;
 
     const markGeo = new THREE.BoxGeometry(0.09, 0.035, TILE * 0.2);
     const markMat = new THREE.MeshStandardMaterial({ color: 0xe6e3d6, roughness: 0.75 });
