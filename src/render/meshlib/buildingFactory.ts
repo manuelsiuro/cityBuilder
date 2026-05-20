@@ -176,6 +176,11 @@ function windowGrid(
   }
 }
 
+/** A paved concrete lot tile the building stands on. */
+function lotSlab(b: MeshBuilder): void {
+  b.box(0.96, 0.04, 0.96, 0, -0.02, 0, 0x84878d);
+}
+
 /** Low parapet wall ringing a flat roof. */
 function parapet(b: MeshBuilder, w: number, d: number, topY: number, color: number): void {
   const t = 0.05;
@@ -315,6 +320,7 @@ function tower(b: MeshBuilder, zone: Zone, level: number, variant: number): void
   const d = (isComm ? 0.64 : 0.6) + ((variant + 1) % 3) * 0.04;
   const top = floors * fh;
 
+  lotSlab(b);
   b.box(w + 0.08, 0.09, d + 0.08, 0, 0, 0, FOUND);
   b.box(w, top, d, 0, 0.05, 0, wall);
 
@@ -392,6 +398,7 @@ function industrial(b: MeshBuilder, level: number, variant: number): void {
   const top = floors * fh;
   const roofC = ROOF_GREY[variant % 3];
 
+  lotSlab(b);
   b.box(w + 0.08, 0.09, d + 0.08, 0, 0, 0, FOUND);
   b.box(w, top, d, 0, 0.05, 0, wall);
   windowBand(b, w, d, 0.05 + (floors - 1) * fh + fh * 0.32, fh * 0.34, GLASS);
