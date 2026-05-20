@@ -258,6 +258,12 @@ function lotGreenery(b: MeshBuilder, variant: number): void {
   b.ico(0.1, c[0], 0, c[1], LEAF[(variant + 1) % LEAF.length]);
 }
 
+/** A single street tree planted on a corner of a paved building lot. */
+function streetTree(b: MeshBuilder, variant: number): void {
+  const cn = LOT_CORNERS[variant % 4];
+  tree(b, cn[0] * 1.16, cn[1] * 1.16, variant);
+}
+
 /** A low fence or hedge ringing the house lot, with a front gate gap. */
 function lotFence(b: MeshBuilder, variant: number): void {
   const e = 0.45;
@@ -395,6 +401,7 @@ function tower(b: MeshBuilder, zone: Zone, level: number, variant: number): void
   } else {
     roofDetails(b, rw, rd, 0.05 + top + 0.05, variant, wall);
   }
+  streetTree(b, variant);
 }
 
 /** A glazed sawtooth factory roof — teeth running across the X axis. */
