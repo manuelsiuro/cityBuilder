@@ -320,9 +320,18 @@ function tower(b: MeshBuilder, zone: Zone, level: number, variant: number): void
   const d = (isComm ? 0.64 : 0.6) + ((variant + 1) % 3) * 0.04;
   const top = floors * fh;
 
+  // Tall even-variant towers step inward near the top for a crown setback.
+  const setback = floors >= 6 && variant % 2 === 0;
+  const lowerFloors = setback ? floors - 2 : floors;
+  const uw = w * 0.7;
+  const ud = d * 0.7;
+
   lotSlab(b);
   b.box(w + 0.08, 0.09, d + 0.08, 0, 0, 0, FOUND);
-  b.box(w, top, d, 0, 0.05, 0, wall);
+  b.box(w, lowerFloors * fh, d, 0, 0.05, 0, wall);
+  if (setback) {
+    b.box(uw, (floors - lowerFloors) * fh, ud, 0, 0.05 + lowerFloors * fh, 0, wall);
+  }
 
   // Odd variants use punched windows; even variants use ribbon glazing.
   const storey = variant % 2 === 1 ? windowGrid : windowBand;
@@ -332,9 +341,12 @@ function tower(b: MeshBuilder, zone: Zone, level: number, variant: number): void
       windowBand(b, w, d, 0.05 + fh * 0.12, fh * 0.66, GLASS);
       continue;
     }
+    const upper = f >= lowerFloors;
+    const fw = upper ? uw : w;
+    const fd = upper ? ud : d;
     const by = 0.05 + f * fh + fh * 0.26;
     const lit = variant % 3 === 0 && f % 2 === 1;
-    storey(b, w, d, by, fh * 0.46, lit ? GLASS_LIT : GLASS);
+    storey(b, fw, fd, by, fh * 0.46, lit ? GLASS_LIT : GLASS);
   }
 
   b.box(0.22, 0.32, 0.05, 0, 0.05, -d / 2, TRIM);
@@ -355,12 +367,14 @@ function tower(b: MeshBuilder, zone: Zone, level: number, variant: number): void
   }
 
   const roofC = ROOF_GREY[variant % 3];
-  b.box(w * 0.99, 0.05, d * 0.99, 0, 0.05 + top, 0, roofC);
-  parapet(b, w, d, 0.05 + top, roofC);
+  const rw = setback ? uw : w;
+  const rd = setback ? ud : d;
+  b.box(rw * 0.99, 0.05, rd * 0.99, 0, 0.05 + top, 0, roofC);
+  parapet(b, rw, rd, 0.05 + top, roofC);
   if (isComm && variant % 3 === 2) {
-    roofTerrace(b, w, d, 0.05 + top + 0.05);
+    roofTerrace(b, rw, rd, 0.05 + top + 0.05);
   } else {
-    roofDetails(b, w, d, 0.05 + top + 0.05, variant, wall);
+    roofDetails(b, rw, rd, 0.05 + top + 0.05, variant, wall);
   }
 }
 
