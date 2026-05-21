@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { CityData } from "../src/sim/CityData";
-import { applyCommand } from "../src/sim/commands";
+import { applyCommand, CmdResult } from "../src/sim/commands";
 import { Dirty, MAX_ELEVATION, TerrainType, Zone } from "../src/sim/layers";
 import { BUILDING } from "../src/sim/buildings";
 
@@ -141,5 +141,37 @@ describe("applyCommand", () => {
     const city = new CityData(8, 8);
     expect(() => applyCommand(city, { type: "buildRoad", x: 99, y: 0 })).not.toThrow();
     expect(city.isDirty(Dirty.Road)).toBe(false);
+  });
+
+  it("reports Ok for a successful build", () => {
+    const city = new CityData(8, 8);
+    expect(applyCommand(city, { type: "buildRoad", x: 3, y: 3 })).toBe(CmdResult.Ok);
+  });
+
+  it("reports NoFunds when the player cannot afford a command", () => {
+    const city = new CityData(8, 8);
+    city.funds = 2;
+    expect(applyCommand(city, { type: "buildRoad", x: 3, y: 3 })).toBe(CmdResult.NoFunds);
+    expect(city.road[city.grid.index(3, 3)]).toBe(0);
+  });
+
+  it("reports Water, Occupied and Blocked rejections distinctly", () => {
+    const city = new CityData(8, 8);
+    city.terrainType[city.grid.index(2, 2)] = TerrainType.Water;
+    expect(applyCommand(city, { type: "buildRoad", x: 2, y: 2 })).toBe(CmdResult.Water);
+
+    applyCommand(city, { type: "buildRoad", x: 4, y: 4 });
+    expect(applyCommand(city, { type: "buildRoad", x: 4, y: 4 })).toBe(CmdResult.Occupied);
+
+    expect(applyCommand(city, { type: "bulldoze", x: 6, y: 6 })).toBe(CmdResult.Blocked);
+  });
+
+  it("reports MaxElevation at the terrain limits", () => {
+    const city = new CityData(8, 8);
+    const i = city.grid.index(4, 4);
+    city.elevation[i] = MAX_ELEVATION;
+    expect(applyCommand(city, { type: "raiseTerrain", x: 4, y: 4 })).toBe(CmdResult.MaxElevation);
+    city.elevation[i] = 1;
+    expect(applyCommand(city, { type: "lowerTerrain", x: 4, y: 4 })).toBe(CmdResult.MaxElevation);
   });
 });

@@ -30,12 +30,13 @@ export class Notifications {
   }
 
   /** Show a message. The oldest toast is dropped past the cap. */
-  push(text: string): void {
+  push(text: string, level: "info" | "warn" = "info"): void {
     const box = new Container();
+    const accent = level === "warn" ? 0xd98a3c : 0x3f6f8c;
     const bg = new Graphics()
       .roundRect(0, 0, W, H, 7)
       .fill({ color: 0x1d2530, alpha: 0.92 })
-      .stroke({ width: 1, color: 0x3f6f8c });
+      .stroke({ width: 1, color: accent });
     const label = new Text({
       text,
       style: {

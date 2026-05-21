@@ -5,7 +5,7 @@ import { CityData } from "./CityData";
 import { generateTerrain } from "./TerrainGen";
 import { DEFAULT_MAP_SETTINGS, MAP_SIZES, type MapSettings } from "./MapSettings";
 import { formatDate, tickToDate, type SimDate } from "./Tick";
-import { applyCommand, type Command } from "./commands";
+import { applyCommand, CmdResult, type Command } from "./commands";
 import type { GameEventMap } from "./events";
 import { Dirty } from "./layers";
 import type { SaveFile } from "../save/schema";
@@ -49,6 +49,8 @@ export class World {
   private readonly budgetSystem: BudgetSystem;
   private _tickCount = 0;
   private _seed: number;
+  /** Tick a given notice message was last emitted — drives throttling. */
+  private readonly noticeAt = new Map<string, number>();
   /** Map-generation parameters this world was built from. */
   settings: MapSettings;
 
@@ -103,10 +105,14 @@ export class World {
   tick(_tickMs: number): void {
     this._tickCount++;
 
-    // Apply queued player intents, then run the system pipeline.
+    // Apply queued player intents, then run the system pipeline. A drag that
+    // can't be afforded surfaces one throttled toast — other rejections (e.g.
+    // painting a road over an existing one) are normal and stay silent.
+    let rejectedForFunds = false;
     for (const cmd of this.commands.drain()) {
-      applyCommand(this.city, cmd);
+      if (applyCommand(this.city, cmd) === CmdResult.NoFunds) rejectedForFunds = true;
     }
+    if (rejectedForFunds) this.notice("warn", "Not enough funds");
 
     // Layers with no dedicated system just notify the renderer and clear.
     if (this.city.isDirty(Dirty.Zone)) {
@@ -140,6 +146,17 @@ export class World {
   }
 
   /**
+   * Emit a player-facing notice, suppressing a repeat of the same message
+   * within ~3 seconds (30 ticks) so a held-down drag doesn't spam the HUD.
+   */
+  private notice(level: "info" | "warn", message: string): void {
+    const last = this.noticeAt.get(message);
+    if (last !== undefined && this._tickCount - last < 30) return;
+    this.noticeAt.set(message, this._tickCount);
+    this.events.emit("notice", { level, message });
+  }
+
+  /**
    * Replace the city with a loaded save. Copies the persistent layers, restores
    * aggregates and RNG state, then re-runs the systems so derived layers and
    * the road graph are consistent immediately.
@@ -165,6 +182,7 @@ export class World {
     this._seed = file.seed;
     this._tickCount = file.meta.simTick;
     this.random.state = file.rngState;
+    this.noticeAt.clear();
 
     this.refreshAfterBulkChange();
   }
@@ -177,6 +195,7 @@ export class World {
     this.city.reset();
     generateTerrain(this.city, this.random, this.settings);
     this._tickCount = 0;
+    this.noticeAt.clear();
     this.refreshAfterBulkChange();
   }
 

@@ -12,7 +12,11 @@ import { Picker } from "../render/Picker";
 import { Input } from "../input/Input";
 import { ToolController, type Tool } from "../input/ToolController";
 import { COST } from "../sim/commands";
+import { Biome, TerrainType, Zone } from "../sim/layers";
+import { buildingDef } from "../sim/buildings";
 import { UIApp } from "../ui/UIApp";
+import { toolForKey } from "../ui/components/ToolPalette";
+import type { TileInfoRow } from "../ui/components/TileInspector";
 import { SaveSystem } from "../save/SaveSystem";
 import { Sfx } from "../engine/Sfx";
 import { RadioService } from "../radio/RadioService";
@@ -92,6 +96,7 @@ export class App {
     await this.ui.init({
       onSelectTool: (tool) => {
         this.tools.activeTool = tool;
+        if (tool !== "inspect") this.ui.hideTileInfo();
         this.sfx.click();
       },
       onOverlayChange: (mode) => {
@@ -175,8 +180,9 @@ export class App {
     ev.on("terrain:changed", () => renderer.rebuildTerrain(world.city));
     ev.on("budget:changed", (report) => {
       this.ui.setBudget(report);
-      if (report.net < 0) this.ui.notify(`Monthly deficit: −$${Math.abs(report.net)}`);
+      if (report.net < 0) this.ui.notify(`Monthly deficit: −$${Math.abs(report.net)}`, "warn");
     });
+    ev.on("notice", ({ level, message }) => this.ui.notify(message, level));
   }
 
   private createPlayingState(): GameStateHandler {
@@ -348,10 +354,13 @@ export class App {
       // Rect tools apply on press+release; a tap must not paint a second time.
       if (tile && this.tools.isBuilding && !this.tools.isRectTool()) {
         this.paintAt(x, y);
+      } else if (tile && this.tools.activeTool === "inspect") {
+        this.showTileDetails(tile);
       }
     });
 
     ev.on("hover", ({ x, y }) => {
+      this.ui.handleHover(x, y);
       this.hoverTile = this.pickTile(x, y);
       renderer.setHighlight(this.hoverTile);
     });
@@ -441,24 +450,66 @@ export class App {
     this.ctx.renderer.resize();
   };
 
-  /** Sim-speed debug controls — full settings UI arrives in a later phase. */
+  /**
+   * Keyboard: digits 1–3 set sim speed, Space toggles pause, and a letter key
+   * selects each build tool (see `ToolPalette` for the mapping).
+   */
   private onKeyDown = (e: KeyboardEvent): void => {
     const { loop } = this.ctx;
     switch (e.code) {
       case "Space":
         loop.speedMultiplier = loop.speedMultiplier === 0 ? 1 : 0;
-        break;
+        return;
       case "Digit1":
         loop.speedMultiplier = 1;
-        break;
+        return;
       case "Digit2":
         loop.speedMultiplier = 2;
-        break;
+        return;
       case "Digit3":
         loop.speedMultiplier = 3;
-        break;
+        return;
+    }
+    // Tool shortcuts — only while a city is in play, never with a modifier.
+    if (this.picker && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      const tool = toolForKey(e.code);
+      if (tool) this.ui.chooseTool(tool);
     }
   };
+
+  /** Read a tile's facts from `CityData` and show them in the inspector panel. */
+  private showTileDetails(tile: { x: number; y: number }): void {
+    const c = this.ctx.world.city;
+    const i = c.grid.index(tile.x, tile.y);
+    const yes = 0x6fcf7f;
+    const no = 0xc0606a;
+    const rows: TileInfoRow[] = [
+      { label: "Terrain", value: TERRAIN_NAME[c.terrainType[i]] ?? "—" },
+      { label: "Biome", value: BIOME_NAME[c.biome[i]] ?? "—" },
+      { label: "Elevation", value: String(c.elevation[i]) },
+    ];
+    if (c.buildingId[i] !== 0) {
+      rows.push({ label: "Building", value: buildingDef(c.buildingId[i]).name });
+    } else if (c.zone[i] !== Zone.None) {
+      rows.push({ label: "Zone", value: ZONE_NAME[c.zone[i]] ?? "—" });
+      rows.push({
+        label: "Development",
+        value: c.buildLevel[i] > 0 ? `Level ${c.buildLevel[i]}` : "Vacant",
+      });
+    } else {
+      rows.push({ label: "Surface", value: c.road[i] ? "Road" : "Unzoned" });
+    }
+    rows.push(
+      { label: "Power", value: c.powered[i] ? "Connected" : "None",
+        accent: c.powered[i] ? yes : no },
+      { label: "Water", value: c.watered[i] ? "Connected" : "None",
+        accent: c.watered[i] ? yes : no },
+      { label: "Land value", value: String(c.landValue[i]) },
+      { label: "Pollution", value: String(c.pollution[i]),
+        accent: c.pollution[i] > 80 ? no : undefined },
+    );
+    this.ui.showTileInfo({ title: `Tile ${tile.x}, ${tile.y}`, rows });
+  }
 
   private updateHud(): void {
     if (!this.hud) return;
@@ -502,6 +553,28 @@ function sizeForWidth(width: number): MapSizeId {
   }
   return "medium";
 }
+
+/** Display names for the tile-inspector panel. */
+const TERRAIN_NAME: Record<number, string> = {
+  [TerrainType.Grass]: "Grassland",
+  [TerrainType.Water]: "Water",
+  [TerrainType.Rock]: "Rock",
+};
+const BIOME_NAME: Record<number, string> = {
+  [Biome.Plains]: "Plains",
+  [Biome.Ocean]: "Ocean",
+  [Biome.Beach]: "Beach",
+  [Biome.Forest]: "Forest",
+  [Biome.Desert]: "Desert",
+  [Biome.Tundra]: "Tundra",
+  [Biome.Snow]: "Snow",
+  [Biome.Mountain]: "Mountain",
+};
+const ZONE_NAME: Record<number, string> = {
+  [Zone.Residential]: "Residential",
+  [Zone.Commercial]: "Commercial",
+  [Zone.Industrial]: "Industrial",
+};
 
 /** Per-tile cost for a rect tool's readout, or null for tools that charge nothing. */
 function rectUnitCost(tool: Tool): number | null {

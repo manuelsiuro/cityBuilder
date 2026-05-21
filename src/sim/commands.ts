@@ -27,61 +27,93 @@ export const COST = {
   lowerTerrain: 10,
 } as const;
 
-/** Apply one command to the city. Mutation happens only here, only at tick start. */
-export function applyCommand(city: CityData, cmd: Command): void {
-  if (!city.grid.inBounds(cmd.x, cmd.y)) return;
+/**
+ * Outcome of applying a command. `Ok` means the city changed; every other
+ * value is a rejection reason `World` may surface to the player.
+ */
+export const CmdResult = {
+  Ok: 0,
+  /** The player could not afford it. */
+  NoFunds: 1,
+  /** A road / building / zone already occupies the tile. */
+  Occupied: 2,
+  /** The tile is water and cannot be built on. */
+  Water: 3,
+  /** Nothing actionable here (e.g. bulldoze on empty land, zone at its limit). */
+  Blocked: 4,
+  /** Terrain is already at its highest / lowest tier. */
+  MaxElevation: 5,
+} as const;
+
+export type CommandResult = (typeof CmdResult)[keyof typeof CmdResult];
+
+/**
+ * Apply one command to the city. Mutation happens only here, only at tick
+ * start. Returns `CmdResult.Ok` on success or a rejection reason otherwise.
+ */
+export function applyCommand(city: CityData, cmd: Command): CommandResult {
+  if (!city.grid.inBounds(cmd.x, cmd.y)) return CmdResult.Blocked;
   const i = city.grid.index(cmd.x, cmd.y);
   const isWater = city.terrainType[i] === TerrainType.Water;
 
   switch (cmd.type) {
     case "buildRoad":
-      if (isWater || city.road[i] || city.funds < COST.buildRoad) return;
+      if (isWater) return CmdResult.Water;
+      if (city.road[i]) return CmdResult.Occupied;
+      if (city.funds < COST.buildRoad) return CmdResult.NoFunds;
       city.funds -= COST.buildRoad;
       city.road[i] = 1;
       city.trees[i] = 0; // construction clears the tile's trees
       city.markDirty(Dirty.Road);
-      break;
+      return CmdResult.Ok;
 
     case "buildPowerLine":
-      if (isWater || city.powerLine[i] || city.funds < COST.buildPowerLine) return;
+      if (isWater) return CmdResult.Water;
+      if (city.powerLine[i]) return CmdResult.Occupied;
+      if (city.funds < COST.buildPowerLine) return CmdResult.NoFunds;
       city.funds -= COST.buildPowerLine;
       city.powerLine[i] = 1;
       city.markDirty(Dirty.Power | Dirty.Utility);
-      break;
+      return CmdResult.Ok;
 
     case "buildPipe":
-      if (isWater || city.pipe[i] || city.funds < COST.buildPipe) return;
+      if (isWater) return CmdResult.Water;
+      if (city.pipe[i]) return CmdResult.Occupied;
+      if (city.funds < COST.buildPipe) return CmdResult.NoFunds;
       city.funds -= COST.buildPipe;
       city.pipe[i] = 1;
       city.markDirty(Dirty.Water | Dirty.Utility);
-      break;
+      return CmdResult.Ok;
 
     case "zone":
-      if (isWater || city.road[i] || city.buildingId[i]) return;
-      if (city.zone[i] === cmd.zone || city.funds < COST.zone) return;
+      if (isWater) return CmdResult.Water;
+      if (city.road[i] || city.buildingId[i]) return CmdResult.Occupied;
+      if (city.zone[i] === cmd.zone) return CmdResult.Blocked;
+      if (city.funds < COST.zone) return CmdResult.NoFunds;
       city.funds -= COST.zone;
       city.zone[i] = cmd.zone;
       city.trees[i] = 0; // zoning clears the tile's trees
       city.markDirty(Dirty.Zone | Dirty.Power | Dirty.Water | Dirty.LandValue);
-      break;
+      return CmdResult.Ok;
 
     case "placeBuilding": {
-      if (isWater || city.road[i] || city.buildingId[i]) return;
+      if (isWater) return CmdResult.Water;
+      if (city.road[i] || city.buildingId[i]) return CmdResult.Occupied;
       const cost = buildingDef(cmd.building).cost;
-      if (city.funds < cost) return;
+      if (city.funds < cost) return CmdResult.NoFunds;
       city.funds -= cost;
       city.buildingId[i] = cmd.building;
       city.zone[i] = Zone.None;
       city.buildLevel[i] = 0;
       city.trees[i] = 0; // construction clears the tile's trees
-      city.markDirty(Dirty.Power | Dirty.Water | Dirty.Utility);
-      break;
+      city.markDirty(Dirty.Power | Dirty.Water | Dirty.Utility | Dirty.LandValue);
+      return CmdResult.Ok;
     }
 
     case "bulldoze":
       if (!city.road[i] && !city.powerLine[i] && !city.pipe[i] &&
           !city.buildingId[i] && city.zone[i] === Zone.None && !city.trees[i]) {
-        return;
+        return CmdResult.Blocked;
       }
       city.road[i] = 0;
       city.powerLine[i] = 0;
@@ -93,24 +125,28 @@ export function applyCommand(city: CityData, cmd: Command): void {
       city.markDirty(
         Dirty.Road | Dirty.Power | Dirty.Water | Dirty.Zone | Dirty.Utility | Dirty.LandValue,
       );
-      break;
+      return CmdResult.Ok;
 
     case "raiseTerrain":
-      if (isWater || isTileOccupied(city, i) || city.funds < COST.raiseTerrain) return;
-      if (city.elevation[i] >= MAX_ELEVATION) return;
+      if (isWater) return CmdResult.Water;
+      if (isTileOccupied(city, i)) return CmdResult.Occupied;
+      if (city.elevation[i] >= MAX_ELEVATION) return CmdResult.MaxElevation;
+      if (city.funds < COST.raiseTerrain) return CmdResult.NoFunds;
       city.funds -= COST.raiseTerrain;
       city.elevation[i]++;
       city.markDirty(Dirty.Terrain);
-      break;
+      return CmdResult.Ok;
 
     case "lowerTerrain":
-      if (isWater || isTileOccupied(city, i) || city.funds < COST.lowerTerrain) return;
+      if (isWater) return CmdResult.Water;
+      if (isTileOccupied(city, i)) return CmdResult.Occupied;
       // Keep land one tier above sea level so it never sinks to the waterline.
-      if (city.elevation[i] <= 1) return;
+      if (city.elevation[i] <= 1) return CmdResult.MaxElevation;
+      if (city.funds < COST.lowerTerrain) return CmdResult.NoFunds;
       city.funds -= COST.lowerTerrain;
       city.elevation[i]--;
       city.markDirty(Dirty.Terrain);
-      break;
+      return CmdResult.Ok;
   }
 }
 
