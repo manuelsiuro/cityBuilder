@@ -14,6 +14,10 @@ const POLLUTION_RANGE = 4;
 const POLLUTION_PER_LEVEL = 26;
 /** Traffic-load units that cost one point of land value. */
 const CONGESTION_DIVISOR = 4;
+/** Police-coverage units that add one point of land value (safety premium). */
+const POLICE_DIVISOR = 9;
+/** Park-coverage units that add one point of land value (amenity premium). */
+const PARK_DIVISOR = 7;
 
 /**
  * Computes per-tile land value: a base value, plus a scenic bonus near water,
@@ -41,10 +45,15 @@ export class LandValueSystem {
     }
 
     for (let i = 0; i < grid.size; i++) {
-      // Heavy traffic depresses desirability.
+      // Heavy traffic depresses desirability; nearby police and parks lift it.
       const congestion = Math.floor(city.trafficLoad[i] / CONGESTION_DIVISOR);
       const biomeMod = BIOME_LAND_VALUE_MOD[city.biome[i] as Biome];
-      const v = BASE_VALUE + this.waterBonus[i] + biomeMod - city.pollution[i] - congestion;
+      const services =
+        Math.floor(city.policeCoverage[i] / POLICE_DIVISOR) +
+        Math.floor(city.parkCoverage[i] / PARK_DIVISOR);
+      const v =
+        BASE_VALUE + this.waterBonus[i] + biomeMod + services -
+        city.pollution[i] - congestion;
       city.landValue[i] = Math.max(0, Math.min(255, v));
     }
   }

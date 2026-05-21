@@ -42,6 +42,12 @@ export class CityData {
   readonly landValue: Uint8Array;
   readonly pollution: Uint8Array;
   readonly trafficLoad: Uint8Array;
+  /** Police-station coverage strength per tile, 0..255. */
+  readonly policeCoverage: Uint8Array;
+  /** Fire-station coverage strength per tile, 0..255. */
+  readonly fireCoverage: Uint8Array;
+  /** Park coverage (greenery / recreation) strength per tile, 0..255. */
+  readonly parkCoverage: Uint8Array;
 
   // --- City-wide aggregates ---
   funds = 20_000;
@@ -85,6 +91,9 @@ export class CityData {
     this.landValue = new Uint8Array(n);
     this.pollution = new Uint8Array(n);
     this.trafficLoad = new Uint8Array(n);
+    this.policeCoverage = new Uint8Array(n);
+    this.fireCoverage = new Uint8Array(n);
+    this.parkCoverage = new Uint8Array(n);
   }
 
   /** Zero every layer and reset aggregates — used when starting a new city. */
@@ -93,6 +102,7 @@ export class CityData {
       this.elevation, this.terrainType, this.biome, this.trees, this.zone, this.buildingId,
       this.buildLevel, this.buildAge, this.road, this.powerLine, this.pipe,
       this.powered, this.watered, this.landValue, this.pollution, this.trafficLoad,
+      this.policeCoverage, this.fireCoverage, this.parkCoverage,
     ]) {
       layer.fill(0);
     }

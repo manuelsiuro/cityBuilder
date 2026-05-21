@@ -15,8 +15,8 @@ import type { Intersection } from "../sim/systems/IntersectionSystem";
 import { TILE, tileCenterX, tileCenterZ, tileSurfaceY } from "./constants";
 import type { TileCoord, TileRect } from "./Picker";
 
-/** Power / water coverage overlay mode. */
-export type OverlayMode = "off" | "power" | "water";
+/** Coverage overlay mode — utilities and city-service reach. */
+export type OverlayMode = "off" | "power" | "water" | "police" | "fire";
 
 const ZONE_COLOR: Record<number, number> = {
   [Zone.Residential]: 0x49c46a,
@@ -36,6 +36,34 @@ const waterColor: TileColorFn = (city, i) => {
   const relevant = city.pipe[i] || city.buildingId[i] || city.zone[i] !== Zone.None;
   if (!relevant) return null;
   return city.watered[i] ? 0x3aa6e0 : 0xd6464a;
+};
+
+/** Linear blend between two packed RGB hex colours, `t` in 0..1. */
+function lerpHex(a: number, b: number, t: number): number {
+  const ar = (a >> 16) & 255, ag = (a >> 8) & 255, ab = a & 255;
+  const br = (b >> 16) & 255, bg = (b >> 8) & 255, bb = b & 255;
+  const r = Math.round(ar + (br - ar) * t);
+  const g = Math.round(ag + (bg - ag) * t);
+  const bl = Math.round(ab + (bb - ab) * t);
+  return (r << 16) | (g << 8) | bl;
+};
+
+const policeColor: TileColorFn = (city, i) => {
+  const c = city.policeCoverage[i];
+  return c > 0 ? lerpHex(0x24507e, 0x6fb6ff, c / 255) : null;
+};
+
+const fireColor: TileColorFn = (city, i) => {
+  const c = city.fireCoverage[i];
+  return c > 0 ? lerpHex(0x7a3520, 0xffa256, c / 255) : null;
+};
+
+/** Tile-colour function backing each non-"off" overlay mode. */
+const OVERLAY_COLORS: Record<Exclude<OverlayMode, "off">, TileColorFn> = {
+  power: powerColor,
+  water: waterColor,
+  police: policeColor,
+  fire: fireColor,
 };
 
 /**
@@ -197,7 +225,7 @@ export class WorldRenderer {
   }
 
   /** Refresh the coverage overlay if it is currently showing the given layer. */
-  refreshOverlay(city: CityData, layer: "power" | "water"): void {
+  refreshOverlay(city: CityData, layer: Exclude<OverlayMode, "off">): void {
     if (this.overlayMode === layer) this.applyOverlay(city);
   }
 
@@ -286,10 +314,7 @@ export class WorldRenderer {
 
   private applyOverlay(city: CityData): void {
     if (!this.networkOverlay || this.overlayMode === "off") return;
-    this.networkOverlay.rebuild(
-      city,
-      this.overlayMode === "power" ? powerColor : waterColor,
-    );
+    this.networkOverlay.rebuild(city, OVERLAY_COLORS[this.overlayMode]);
   }
 }
 

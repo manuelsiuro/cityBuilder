@@ -15,6 +15,7 @@ import { RoadSystem } from "./systems/RoadSystem";
 import { IntersectionSystem, type Intersection } from "./systems/IntersectionSystem";
 import { PowerSystem } from "./systems/PowerSystem";
 import { WaterSystem } from "./systems/WaterSystem";
+import { CoverageSystem } from "./systems/CoverageSystem";
 import { LandValueSystem } from "./systems/LandValueSystem";
 import { PopulationSystem } from "./systems/PopulationSystem";
 import { RCISystem } from "./systems/RCISystem";
@@ -41,6 +42,7 @@ export class World {
   private readonly intersectionSystem: IntersectionSystem;
   private readonly powerSystem: PowerSystem;
   private readonly waterSystem: WaterSystem;
+  private readonly coverageSystem: CoverageSystem;
   private readonly landValueSystem = new LandValueSystem();
   private readonly populationSystem = new PopulationSystem();
   private readonly rciSystem = new RCISystem();
@@ -72,6 +74,7 @@ export class World {
     this.intersectionSystem = new IntersectionSystem(this.events);
     this.powerSystem = new PowerSystem(this.events);
     this.waterSystem = new WaterSystem(this.events);
+    this.coverageSystem = new CoverageSystem(this.events);
     this.developmentSystem = new DevelopmentSystem(this.random, this.events);
     this.trafficSystem = new TrafficSystem(
       this.roadGraph,
@@ -132,6 +135,7 @@ export class World {
     this.intersectionSystem.update(this.city);
     this.powerSystem.update(this.city);
     this.waterSystem.update(this.city);
+    this.coverageSystem.update(this.city);
     this.trafficSystem.update(this.city, this._tickCount);
 
     // Slow systems run once per in-game day — too costly and too twitchy
@@ -208,7 +212,9 @@ export class World {
     const c = this.city;
     this.trafficSystem.clear();
     this.landValueSystem.reset(); // terrain changed — drop the scenic cache
-    c.markDirty(Dirty.Road | Dirty.Power | Dirty.Water | Dirty.Zone | Dirty.Utility);
+    c.markDirty(
+      Dirty.Road | Dirty.Power | Dirty.Water | Dirty.Zone | Dirty.Utility | Dirty.Coverage,
+    );
     // The renderer rebuilds terrain directly via `rebuildAll` — drop the flag
     // so the next tick doesn't fire a redundant `terrain:changed` rebuild.
     c.clearDirty(Dirty.Terrain);
@@ -217,6 +223,7 @@ export class World {
     this.intersectionSystem.update(c);
     this.powerSystem.update(c);
     this.waterSystem.update(c);
+    this.coverageSystem.update(c);
     this.landValueSystem.update(c);
     this.populationSystem.update(c);
     this.rciSystem.update(c);

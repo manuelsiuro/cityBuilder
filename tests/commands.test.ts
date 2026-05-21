@@ -166,6 +166,28 @@ describe("applyCommand", () => {
     expect(applyCommand(city, { type: "bulldoze", x: 6, y: 6 })).toBe(CmdResult.Blocked);
   });
 
+  it("places service buildings, charges their cost, and marks coverage dirty", () => {
+    const city = new CityData(8, 8);
+    const before = city.funds;
+    applyCommand(city, { type: "placeBuilding", x: 2, y: 2, building: BUILDING.PoliceStation });
+    applyCommand(city, { type: "placeBuilding", x: 4, y: 4, building: BUILDING.FireStation });
+    applyCommand(city, { type: "placeBuilding", x: 6, y: 6, building: BUILDING.Park });
+    expect(city.buildingId[city.grid.index(2, 2)]).toBe(BUILDING.PoliceStation);
+    expect(city.buildingId[city.grid.index(4, 4)]).toBe(BUILDING.FireStation);
+    expect(city.buildingId[city.grid.index(6, 6)]).toBe(BUILDING.Park);
+    expect(city.funds).toBe(before - 800 - 800 - 150);
+    expect(city.isDirty(Dirty.Coverage)).toBe(true);
+  });
+
+  it("refuses a service building the player cannot afford", () => {
+    const city = new CityData(8, 8);
+    city.funds = 100;
+    expect(
+      applyCommand(city, { type: "placeBuilding", x: 2, y: 2, building: BUILDING.FireStation }),
+    ).toBe(CmdResult.NoFunds);
+    expect(city.buildingId[city.grid.index(2, 2)]).toBe(BUILDING.None);
+  });
+
   it("reports MaxElevation at the terrain limits", () => {
     const city = new CityData(8, 8);
     const i = city.grid.index(4, 4);

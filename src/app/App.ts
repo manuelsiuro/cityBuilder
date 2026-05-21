@@ -183,6 +183,10 @@ export class App {
       if (report.net < 0) this.ui.notify(`Monthly deficit: −$${Math.abs(report.net)}`, "warn");
     });
     ev.on("notice", ({ level, message }) => this.ui.notify(message, level));
+    ev.on("coverage:changed", () => {
+      renderer.refreshOverlay(world.city, "police");
+      renderer.refreshOverlay(world.city, "fire");
+    });
   }
 
   private createPlayingState(): GameStateHandler {
@@ -507,6 +511,8 @@ export class App {
       { label: "Land value", value: String(c.landValue[i]) },
       { label: "Pollution", value: String(c.pollution[i]),
         accent: c.pollution[i] > 80 ? no : undefined },
+      { label: "Police", value: coverageLabel(c.policeCoverage[i]) },
+      { label: "Fire cover", value: coverageLabel(c.fireCoverage[i]) },
     );
     this.ui.showTileInfo({ title: `Tile ${tile.x}, ${tile.y}`, rows });
   }
@@ -575,6 +581,14 @@ const ZONE_NAME: Record<number, string> = {
   [Zone.Commercial]: "Commercial",
   [Zone.Industrial]: "Industrial",
 };
+
+/** Bucket a 0–255 coverage strength into a readable inspector label. */
+function coverageLabel(strength: number): string {
+  if (strength === 0) return "None";
+  if (strength < 90) return "Low";
+  if (strength < 170) return "Medium";
+  return "High";
+}
 
 /** Per-tile cost for a rect tool's readout, or null for tools that charge nothing. */
 function rectUnitCost(tool: Tool): number | null {

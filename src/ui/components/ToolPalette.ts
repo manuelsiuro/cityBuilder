@@ -47,6 +47,12 @@ const TOOLS: ToolDef[] = [
     desc: "Water pipe — $7 per tile" },
   { tool: "waterPump", label: "Pump", group: 3, accent: 0x4ab4e0, key: "KeyM", keyLabel: "M",
     desc: "Water pump — $600" },
+  { tool: "police", label: "Police", group: 4, accent: 0x5b8fd6, key: "KeyO", keyLabel: "O",
+    desc: "Police station — $800 · raises safety & land value" },
+  { tool: "fire", label: "Fire", group: 4, accent: 0xe06a4a, key: "KeyN", keyLabel: "N",
+    desc: "Fire station — $800 · protects against fires" },
+  { tool: "park", label: "Park", group: 4, accent: 0x5fb05a, key: "KeyU", keyLabel: "U",
+    desc: "Park — $150 · lifts nearby land value" },
 ];
 
 /** Map a `KeyboardEvent.code` to the tool it selects, or null. */

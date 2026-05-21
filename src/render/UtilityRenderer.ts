@@ -17,6 +17,9 @@ export class UtilityRenderer {
   private readonly plant: THREE.InstancedMesh;
   private readonly pump: THREE.InstancedMesh;
   private readonly pylon: THREE.InstancedMesh;
+  private readonly police: THREE.InstancedMesh;
+  private readonly fire: THREE.InstancedMesh;
+  private readonly park: THREE.InstancedMesh;
   private readonly pipe: THREE.InstancedMesh;
   private readonly dummy = new THREE.Object3D();
 
@@ -31,6 +34,9 @@ export class UtilityRenderer {
     this.plant = this.makeInstanced(plantGeometry(), max);
     this.pump = this.makeInstanced(pumpGeometry(), max);
     this.pylon = this.makeInstanced(pylonGeometry(), max);
+    this.police = this.makeInstanced(policeGeometry(), max);
+    this.fire = this.makeInstanced(fireStationGeometry(), max);
+    this.park = this.makeInstanced(parkGeometry(), max);
 
     const pipeGeo = new THREE.PlaneGeometry(TILE * 0.6, TILE * 0.6);
     pipeGeo.rotateX(-Math.PI / 2);
@@ -39,7 +45,10 @@ export class UtilityRenderer {
     this.pipe.count = 0;
     this.pipe.frustumCulled = false;
 
-    this.group.add(this.plant, this.pump, this.pylon, this.pipe);
+    this.group.add(
+      this.plant, this.pump, this.pylon,
+      this.police, this.fire, this.park, this.pipe,
+    );
     this.rebuild(city);
   }
 
@@ -49,6 +58,9 @@ export class UtilityRenderer {
     let plants = 0;
     let pumps = 0;
     let pylons = 0;
+    let police = 0;
+    let fire = 0;
+    let parks = 0;
     let pipes = 0;
 
     for (let i = 0; i < grid.size; i++) {
@@ -56,10 +68,22 @@ export class UtilityRenderer {
       const cz = tileCenterZ(grid.y(i), grid);
       const surf = tileSurfaceY(city, i);
 
-      if (city.buildingId[i] === BUILDING.PowerPlant) {
-        plants = this.place(this.plant, plants, cx, surf, cz);
-      } else if (city.buildingId[i] === BUILDING.WaterPump) {
-        pumps = this.place(this.pump, pumps, cx, surf, cz);
+      switch (city.buildingId[i]) {
+        case BUILDING.PowerPlant:
+          plants = this.place(this.plant, plants, cx, surf, cz);
+          break;
+        case BUILDING.WaterPump:
+          pumps = this.place(this.pump, pumps, cx, surf, cz);
+          break;
+        case BUILDING.PoliceStation:
+          police = this.place(this.police, police, cx, surf, cz);
+          break;
+        case BUILDING.FireStation:
+          fire = this.place(this.fire, fire, cx, surf, cz);
+          break;
+        case BUILDING.Park:
+          parks = this.place(this.park, parks, cx, surf, cz);
+          break;
       }
       if (city.powerLine[i] === 1) {
         pylons = this.place(this.pylon, pylons, cx, surf, cz);
@@ -72,6 +96,9 @@ export class UtilityRenderer {
     finalize(this.plant, plants);
     finalize(this.pump, pumps);
     finalize(this.pylon, pylons);
+    finalize(this.police, police);
+    finalize(this.fire, fire);
+    finalize(this.park, parks);
     finalize(this.pipe, pipes);
   }
 
@@ -81,7 +108,10 @@ export class UtilityRenderer {
   }
 
   dispose(): void {
-    for (const m of [this.plant, this.pump, this.pylon, this.pipe]) {
+    for (const m of [
+      this.plant, this.pump, this.pylon,
+      this.police, this.fire, this.park, this.pipe,
+    ]) {
       m.geometry.dispose();
     }
     (this.pipe.material as THREE.Material).dispose();
@@ -157,5 +187,62 @@ export function pylonGeometry(): THREE.BufferGeometry {
   b.box(0.46, 0.06, 0.07, 0, 0.66, 0, 0x6b5b4a);
   b.box(0.06, 0.06, 0.06, -0.18, 0.72, 0, 0xd9d9d9);
   b.box(0.06, 0.06, 0.06, 0.18, 0.72, 0, 0xd9d9d9);
+  return b.build();
+}
+
+/** Police station: slate civic block, columned entrance and a blue beacon. */
+export function policeGeometry(): THREE.BufferGeometry {
+  const b = new MeshBuilder();
+  b.box(0.88, 0.08, 0.88, 0, 0, 0, 0xb7b1a4);             // foundation pad
+  b.box(0.68, 0.46, 0.6, 0, 0.08, -0.06, 0x46506a);       // main block
+  b.box(0.74, 0.07, 0.66, 0, 0.54, -0.06, 0x2b3445);      // roof slab
+  b.box(0.62, 0.05, 0.54, 0, 0.5, -0.06, 0xc6cbd2);       // white cornice band
+  // Columned entrance porch on the south face.
+  b.box(0.4, 0.06, 0.2, 0, 0.08, 0.32, 0xd6d2c6);         // porch step
+  b.box(0.07, 0.3, 0.07, -0.13, 0.14, 0.36, 0xe6e6e6);    // column
+  b.box(0.07, 0.3, 0.07, 0.13, 0.14, 0.36, 0xe6e6e6);     // column
+  b.box(0.42, 0.08, 0.16, 0, 0.44, 0.34, 0x2b3445);       // porch lintel
+  b.box(0.3, 0.12, 0.04, 0, 0.3, 0.27, 0x29408c);         // blue "POLICE" sign
+  // Roof beacon.
+  b.box(0.1, 0.1, 0.1, 0.2, 0.61, -0.18, 0x2b3445);
+  b.ico(0.06, 0.2, 0.71, -0.18, 0x4a90d8);
+  return b.build();
+}
+
+/** Fire station: red engine bay, white trim, flat roof and a hose tower. */
+export function fireStationGeometry(): THREE.BufferGeometry {
+  const b = new MeshBuilder();
+  b.box(0.88, 0.08, 0.88, 0, 0, 0, 0xb7b1a4);             // foundation pad
+  b.box(0.72, 0.42, 0.6, 0, 0.08, -0.06, 0xb1402f);       // main block
+  b.box(0.74, 0.06, 0.62, 0, 0.46, -0.05, 0xe4e4e4);      // white trim band
+  b.box(0.78, 0.07, 0.66, 0, 0.5, -0.06, 0x7c2a20);       // roof slab
+  // Three engine-bay doors on the south face.
+  for (const x of [-0.22, 0, 0.22]) {
+    b.box(0.18, 0.32, 0.06, x, 0.08, 0.24, 0x8b8f96);
+  }
+  // Hose-drying tower on the back corner.
+  b.box(0.2, 0.78, 0.2, 0.27, 0.08, -0.24, 0xc24a38);
+  b.box(0.24, 0.07, 0.24, 0.27, 0.86, -0.24, 0x7c2a20);
+  b.box(0.1, 0.1, 0.1, -0.22, 0.57, -0.22, 0xe4e4e4);     // roof vent
+  return b.build();
+}
+
+/** Park: a grassy plot with low-poly trees, a pond, a path and a bench. */
+export function parkGeometry(): THREE.BufferGeometry {
+  const b = new MeshBuilder();
+  b.box(0.92, 0.07, 0.92, 0, 0, 0, 0x5a8f3e);             // grass plot
+  b.box(0.34, 0.03, 0.28, -0.18, 0.07, 0.16, 0x4791b5);   // pond
+  b.box(0.15, 0.02, 0.74, 0.24, 0.07, 0, 0xcabf94);       // gravel path
+  // A few low-poly trees.
+  const tree = (x: number, z: number, lush: number): void => {
+    b.cyl(0.035, 0.16, x, 0.07, z, 0x6b4a2e, 6);
+    b.ico(0.15, x, 0.2, z, lush);
+  };
+  tree(-0.22, -0.22, 0x3f7a3a);
+  tree(0.26, 0.28, 0x478a3e);
+  tree(0.04, -0.3, 0x4f8a44);
+  // A bench beside the path.
+  b.box(0.16, 0.04, 0.06, 0.02, 0.1, 0.18, 0x9a7b4e);
+  b.box(0.16, 0.05, 0.02, 0.02, 0.14, 0.15, 0x9a7b4e);
   return b.build();
 }

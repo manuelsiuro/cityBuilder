@@ -26,6 +26,8 @@ export type GameEventMap = {
   "budget:changed": BudgetReport;
   /** A player-facing message — a rejected action, a warning, an event. */
   "notice": { level: "info" | "warn"; message: string };
+  /** Service-building coverage recomputed — renderer refreshes the overlay. */
+  "coverage:changed": void;
 };
 
 export type GameEventBus = EventBus<GameEventMap>;

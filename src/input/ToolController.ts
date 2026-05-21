@@ -18,10 +18,19 @@ export type Tool =
   | "powerLine"
   | "powerPlant"
   | "pipe"
-  | "waterPump";
+  | "waterPump"
+  | "police"
+  | "fire"
+  | "park";
 
 /** Tools placed one tile at a time — a drag does not paint a line of them. */
-const POINT_TOOLS = new Set<Tool>(["powerPlant", "waterPump"]);
+const POINT_TOOLS = new Set<Tool>([
+  "powerPlant",
+  "waterPump",
+  "police",
+  "fire",
+  "park",
+]);
 
 /** Tools applied to a rubber-band rectangle — emitted on stroke commit. */
 const RECT_TOOLS = new Set<Tool>([
@@ -172,6 +181,12 @@ export class ToolController {
         return { type: "placeBuilding", x, y, building: BUILDING.PowerPlant };
       case "waterPump":
         return { type: "placeBuilding", x, y, building: BUILDING.WaterPump };
+      case "police":
+        return { type: "placeBuilding", x, y, building: BUILDING.PoliceStation };
+      case "fire":
+        return { type: "placeBuilding", x, y, building: BUILDING.FireStation };
+      case "park":
+        return { type: "placeBuilding", x, y, building: BUILDING.Park };
       default:
         return null;
     }

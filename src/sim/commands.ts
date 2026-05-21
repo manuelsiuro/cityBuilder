@@ -106,7 +106,7 @@ export function applyCommand(city: CityData, cmd: Command): CommandResult {
       city.zone[i] = Zone.None;
       city.buildLevel[i] = 0;
       city.trees[i] = 0; // construction clears the tile's trees
-      city.markDirty(Dirty.Power | Dirty.Water | Dirty.Utility | Dirty.LandValue);
+      city.markDirty(Dirty.Power | Dirty.Water | Dirty.Utility | Dirty.LandValue | Dirty.Coverage);
       return CmdResult.Ok;
     }
 
@@ -123,7 +123,8 @@ export function applyCommand(city: CityData, cmd: Command): CommandResult {
       city.buildLevel[i] = 0;
       city.trees[i] = 0; // bulldozing also clears forest
       city.markDirty(
-        Dirty.Road | Dirty.Power | Dirty.Water | Dirty.Zone | Dirty.Utility | Dirty.LandValue,
+        Dirty.Road | Dirty.Power | Dirty.Water | Dirty.Zone |
+          Dirty.Utility | Dirty.LandValue | Dirty.Coverage,
       );
       return CmdResult.Ok;
 

@@ -1,17 +1,21 @@
 import { Container, Graphics, Text } from "pixi.js";
 
-const MODES = ["off", "power", "water"] as const;
+const MODES = ["off", "power", "water", "police", "fire"] as const;
 export type OverlayChoice = (typeof MODES)[number];
 
 const LABEL: Record<OverlayChoice, string> = {
   off: "Overlay: Off",
   power: "Overlay: Power",
   water: "Overlay: Water",
+  police: "Overlay: Police",
+  fire: "Overlay: Fire",
 };
 const FILL: Record<OverlayChoice, number> = {
   off: 0x2b313c,
   power: 0x2f6f3a,
   water: 0x2f5a7a,
+  police: 0x344a73,
+  fire: 0x73402f,
 };
 
 const W = 168;

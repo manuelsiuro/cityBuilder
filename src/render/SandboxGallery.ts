@@ -7,7 +7,14 @@ import {
   createBuildingGeometry,
   treeGeometry,
 } from "./meshlib/buildingFactory";
-import { plantGeometry, pumpGeometry, pylonGeometry } from "./UtilityRenderer";
+import {
+  plantGeometry,
+  pumpGeometry,
+  pylonGeometry,
+  policeGeometry,
+  fireStationGeometry,
+  parkGeometry,
+} from "./UtilityRenderer";
 import { sedanGeometry, vanGeometry, truckGeometry } from "./CarRenderer";
 import { TerrainMesh } from "./TerrainMesh";
 import { RoadInstances } from "./RoadInstances";
@@ -80,6 +87,9 @@ export class SandboxGallery {
       { geo: plantGeometry(), name: "Power Plant", lift: 0 },
       { geo: pumpGeometry(), name: "Water Pump", lift: 0 },
       { geo: pylonGeometry(), name: "Power Pylon", lift: 0 },
+      { geo: policeGeometry(), name: "Police Station", lift: 0 },
+      { geo: fireStationGeometry(), name: "Fire Station", lift: 0 },
+      { geo: parkGeometry(), name: "Park", lift: 0 },
       { geo: sedanGeometry(), name: "Sedan", lift: 0.11 },
       { geo: vanGeometry(), name: "Van", lift: 0.11 },
       { geo: truckGeometry(), name: "Truck", lift: 0.11 },
