@@ -209,6 +209,7 @@ export class App {
         this.ui.updateMinimap(world.city, dtMs);
         renderer.updateCars(world.cars, world.city, alpha);
         renderer.updateTrafficLights(world.tickCount);
+        renderer.updateFire(world.city);
         renderer.update(dtMs);
         renderer.render();
       },

@@ -10,6 +10,7 @@ import { TileOverlay, type TileColorFn } from "./TileOverlay";
 import { UtilityRenderer } from "./UtilityRenderer";
 import { TreeRenderer } from "./TreeRenderer";
 import { TrafficLightRenderer } from "./TrafficLightRenderer";
+import { FireRenderer } from "./FireRenderer";
 import type { Car } from "../sim/systems/TrafficSystem";
 import type { Intersection } from "../sim/systems/IntersectionSystem";
 import { TILE, tileCenterX, tileCenterZ, tileSurfaceY } from "./constants";
@@ -83,6 +84,7 @@ export class WorldRenderer {
   private trafficLights?: TrafficLightRenderer;
   private utilities?: UtilityRenderer;
   private trees?: TreeRenderer;
+  private fire?: FireRenderer;
   private zoneOverlay?: TileOverlay;
   private networkOverlay?: TileOverlay;
   private rectHighlight?: TileOverlay;
@@ -133,6 +135,7 @@ export class WorldRenderer {
     this.trafficLights = new TrafficLightRenderer();
     this.utilities = new UtilityRenderer(city);
     this.trees = new TreeRenderer(city);
+    this.fire = new FireRenderer(city.grid.size);
     this.zoneOverlay = new TileOverlay(city.grid.size, 0.05, 0.5);
     this.networkOverlay = new TileOverlay(city.grid.size, 0.14, 0.6);
     this.networkOverlay.visible = false;
@@ -147,6 +150,7 @@ export class WorldRenderer {
       this.trafficLights.group,
       this.utilities.group,
       this.trees.group,
+      this.fire.group,
       this.zoneOverlay.mesh,
       this.networkOverlay.mesh,
       this.rectHighlight.mesh,
@@ -222,6 +226,11 @@ export class WorldRenderer {
   /** Recolour traffic signals from the current sim tick. Call every frame. */
   updateTrafficLights(tick: number): void {
     this.trafficLights?.update(tick);
+  }
+
+  /** Re-place flickering fire flames from the current `fire` layer. */
+  updateFire(city: CityData): void {
+    this.fire?.update(city, performance.now());
   }
 
   /** Refresh the coverage overlay if it is currently showing the given layer. */
@@ -303,6 +312,7 @@ export class WorldRenderer {
     this.trafficLights?.dispose();
     this.utilities?.dispose();
     this.trees?.dispose();
+    this.fire?.dispose();
     this.zoneOverlay?.dispose();
     this.networkOverlay?.dispose();
     this.rectHighlight?.dispose();

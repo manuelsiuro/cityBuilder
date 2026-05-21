@@ -16,6 +16,7 @@ import { IntersectionSystem, type Intersection } from "./systems/IntersectionSys
 import { PowerSystem } from "./systems/PowerSystem";
 import { WaterSystem } from "./systems/WaterSystem";
 import { CoverageSystem } from "./systems/CoverageSystem";
+import { DisasterSystem } from "./systems/DisasterSystem";
 import { LandValueSystem } from "./systems/LandValueSystem";
 import { PopulationSystem } from "./systems/PopulationSystem";
 import { RCISystem } from "./systems/RCISystem";
@@ -43,6 +44,7 @@ export class World {
   private readonly powerSystem: PowerSystem;
   private readonly waterSystem: WaterSystem;
   private readonly coverageSystem: CoverageSystem;
+  private readonly disasterSystem: DisasterSystem;
   private readonly landValueSystem = new LandValueSystem();
   private readonly populationSystem = new PopulationSystem();
   private readonly rciSystem = new RCISystem();
@@ -75,6 +77,7 @@ export class World {
     this.powerSystem = new PowerSystem(this.events);
     this.waterSystem = new WaterSystem(this.events);
     this.coverageSystem = new CoverageSystem(this.events);
+    this.disasterSystem = new DisasterSystem(this.random, this.events);
     this.developmentSystem = new DevelopmentSystem(this.random, this.events);
     this.trafficSystem = new TrafficSystem(
       this.roadGraph,
@@ -136,6 +139,7 @@ export class World {
     this.powerSystem.update(this.city);
     this.waterSystem.update(this.city);
     this.coverageSystem.update(this.city);
+    this.disasterSystem.update(this.city, this._tickCount);
     this.trafficSystem.update(this.city, this._tickCount);
 
     // Slow systems run once per in-game day — too costly and too twitchy
@@ -187,6 +191,8 @@ export class World {
     this._tickCount = file.meta.simTick;
     this.random.state = file.rngState;
     this.noticeAt.clear();
+    c.fire.fill(0); // fires are transient — a loaded city starts unburnt
+    this.disasterSystem.clear();
 
     this.refreshAfterBulkChange();
   }
@@ -200,6 +206,7 @@ export class World {
     generateTerrain(this.city, this.random, this.settings);
     this._tickCount = 0;
     this.noticeAt.clear();
+    this.disasterSystem.clear();
     this.refreshAfterBulkChange();
   }
 
