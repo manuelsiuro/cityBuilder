@@ -7,8 +7,9 @@ import {
 } from "../../sim/MapSettings";
 
 const FONT = "ui-sans-serif, system-ui, sans-serif";
-const PANEL_W = 460;
-const PANEL_H = 520;
+const PANEL_W = 480;
+const PANEL_H = 512;
+const PAD = 44;
 
 export interface MenuCallbacks {
   onNewCity: (settings: MapSettings) => void;
@@ -33,6 +34,7 @@ const SIZE_LABELS: Record<MapSizeId, string> = {
   medium: "Medium",
   large: "Large",
 };
+const SIZES: MapSizeId[] = ["small", "medium", "large"];
 
 /**
  * Full-screen main menu shown at boot. Offers New City — with a map-settings
@@ -79,7 +81,11 @@ export class MainMenu {
   }
 
   private sliderTrack(index: number): { x: number; y: number; w: number } {
-    return { x: this.panelX + 40, y: this.panelY + 250 + index * 64, w: PANEL_W - 80 };
+    return {
+      x: this.panelX + PAD,
+      y: this.panelY + 256 + index * 64,
+      w: PANEL_W - PAD * 2,
+    };
   }
 
   // --- Rendering -------------------------------------------------------
@@ -88,20 +94,22 @@ export class MainMenu {
     this.container.removeChildren().forEach((c) => c.destroy({ children: true }));
 
     // Dimmed full-screen backdrop.
-    const backdrop = new Graphics()
-      .rect(0, 0, this.screenW, this.screenH)
-      .fill({ color: 0x0b0f14, alpha: 0.82 });
-    this.container.addChild(backdrop);
+    this.container.addChild(
+      new Graphics()
+        .rect(0, 0, this.screenW, this.screenH)
+        .fill({ color: 0x0b0f14, alpha: 0.82 }),
+    );
 
     // Panel.
-    const panel = new Graphics()
-      .roundRect(this.panelX, this.panelY, PANEL_W, PANEL_H, 16)
-      .fill({ color: 0x161a20, alpha: 0.98 })
-      .stroke({ width: 2, color: 0x39414d });
-    this.container.addChild(panel);
+    this.container.addChild(
+      new Graphics()
+        .roundRect(this.panelX, this.panelY, PANEL_W, PANEL_H, 16)
+        .fill({ color: 0x161a20, alpha: 0.98 })
+        .stroke({ width: 2, color: 0x39414d }),
+    );
 
-    this.addText("MINICITY", this.panelX + PANEL_W / 2, this.panelY + 48, {
-      size: 36,
+    this.addText("MINICITY", this.panelX + PANEL_W / 2, this.panelY + 56, {
+      size: 38,
       weight: "800",
       color: 0xeef2f6,
     });
@@ -113,14 +121,15 @@ export class MainMenu {
 
   private renderRoot(): void {
     this.addText("Build the city of your dreams", this.panelX + PANEL_W / 2,
-      this.panelY + 92, { size: 14, color: 0x8b95a1 });
+      this.panelY + 100, { size: 14, color: 0x8b95a1 });
 
-    this.addButton("New City", this.panelX + PANEL_W / 2, this.panelY + 200, 260, 56, () => {
+    const cx = this.panelX + PANEL_W / 2;
+    this.addButton("New City", cx, this.panelY + 248, 300, 60, () => {
       this.screen = "new";
       this.render();
     }, true);
 
-    this.addButton("Load City", this.panelX + PANEL_W / 2, this.panelY + 280, 260, 56, () => {
+    this.addButton("Load City", cx, this.panelY + 332, 300, 60, () => {
       this.screen = "load";
       this.slots = [];
       this.render();
@@ -134,39 +143,43 @@ export class MainMenu {
   }
 
   private renderNew(): void {
-    // Seed row.
-    this.addText("Seed", this.panelX + 40, this.panelY + 120,
+    const left = this.panelX + PAD;
+    const right = this.panelX + PANEL_W - PAD;
+
+    // --- Seed row ---
+    this.addText("Seed", left, this.panelY + 122,
       { size: 14, color: 0xb6bfca, anchorX: 0 });
-    this.addText(String(this.settings.seed), this.panelX + 110, this.panelY + 120,
+    this.addText(String(this.settings.seed), left + 60, this.panelY + 122,
       { size: 14, color: 0xeef2f6, weight: "700", anchorX: 0 });
-    this.addButton("Randomise", this.panelX + PANEL_W - 105, this.panelY + 120, 130, 32, () => {
+    this.addButton("Randomise", right - 64, this.panelY + 122, 128, 34, () => {
       this.settings.seed = randomSeed();
       this.render();
     }, false, 13);
 
-    // Map-size toggle.
-    this.addText("Map size", this.panelX + 40, this.panelY + 168,
+    // --- Map-size toggle ---
+    this.addText("Map size", left, this.panelY + 180,
       { size: 14, color: 0xb6bfca, anchorX: 0 });
-    const sizes: MapSizeId[] = ["small", "medium", "large"];
-    sizes.forEach((id, i) => {
-      const w = 108;
-      const cx = this.panelX + 150 + i * (w + 8) + w / 2;
-      const active = this.settings.size === id;
+    const groupX = left + 80;
+    const groupW = right - groupX;
+    const btnW = (groupW - 16) / 3;
+    SIZES.forEach((id, i) => {
+      const bx = groupX + i * (btnW + 8) + btnW / 2;
       this.addButton(
-        `${SIZE_LABELS[id]}\n${MAP_SIZES[id]}²`,
-        cx, this.panelY + 168, w, 40,
+        `${SIZE_LABELS[id]}  ${MAP_SIZES[id]}²`,
+        bx, this.panelY + 180, btnW, 40,
         () => { this.settings.size = id; this.render(); },
-        active,
+        this.settings.size === id,
+        12.5,
       );
     });
 
-    // Sliders.
+    // --- Sliders ---
     SLIDERS.forEach((def, i) => {
       const track = this.sliderTrack(i);
       const value = this.settings[def.key];
-      this.addText(def.label, track.x, track.y - 20,
+      this.addText(def.label, track.x, track.y - 22,
         { size: 13, color: 0xb6bfca, anchorX: 0 });
-      this.addText(`${Math.round(value * 100)}%`, track.x + track.w, track.y - 20,
+      this.addText(`${Math.round(value * 100)}%`, track.x + track.w, track.y - 22,
         { size: 13, color: 0xeef2f6, weight: "700", anchorX: 1 });
 
       const fillW = track.w * value;
@@ -187,30 +200,31 @@ export class MainMenu {
       this.container.addChild(bar);
     });
 
-    // Start / Back.
-    this.addButton("Start", this.panelX + PANEL_W / 2 + 70, this.panelY + PANEL_H - 50,
-      180, 52, () => this.cb.onNewCity({ ...this.settings }), true);
-    this.addButton("Back", this.panelX + PANEL_W / 2 - 110, this.panelY + PANEL_H - 50,
-      150, 52, () => { this.screen = "root"; this.render(); });
+    // --- Start / Back ---
+    const btnY = this.panelY + PANEL_H - 52;
+    this.addButton("Back", this.panelX + PANEL_W / 2 - 116, btnY, 160, 52,
+      () => { this.screen = "root"; this.render(); });
+    this.addButton("Start", this.panelX + PANEL_W / 2 + 80, btnY, 196, 52,
+      () => this.cb.onNewCity({ ...this.settings }), true);
   }
 
   private renderLoad(): void {
-    this.addText("Saved cities", this.panelX + PANEL_W / 2, this.panelY + 96,
+    this.addText("Saved cities", this.panelX + PANEL_W / 2, this.panelY + 108,
       { size: 16, color: 0xb6bfca });
 
     if (this.slots.length === 0) {
       this.addText("No saved cities found", this.panelX + PANEL_W / 2,
-        this.panelY + 200, { size: 14, color: 0x8b95a1 });
+        this.panelY + 220, { size: 14, color: 0x8b95a1 });
     } else {
       this.slots.forEach((slot, i) => {
         this.addButton(`Slot ${slot}`, this.panelX + PANEL_W / 2,
-          this.panelY + 150 + i * 60, PANEL_W - 80, 48,
+          this.panelY + 168 + i * 60, PANEL_W - PAD * 2, 48,
           () => this.cb.onLoadCity(slot));
       });
     }
 
-    this.addButton("Back", this.panelX + PANEL_W / 2, this.panelY + PANEL_H - 50,
-      180, 52, () => { this.screen = "root"; this.render(); });
+    this.addButton("Back", this.panelX + PANEL_W / 2, this.panelY + PANEL_H - 52,
+      200, 52, () => { this.screen = "root"; this.render(); });
   }
 
   // --- Slider dragging -------------------------------------------------
@@ -264,7 +278,6 @@ export class MainMenu {
         fontFamily: FONT,
         fontWeight: primary ? "700" : "600",
         align: "center",
-        lineHeight: fontSize + 2,
       },
     });
     t.anchor.set(0.5);

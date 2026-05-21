@@ -61,6 +61,7 @@ export class WorldRenderer {
   private city?: CityData;
   private overlayMode: OverlayMode = "off";
   private readonly highlight: THREE.Mesh;
+  private readonly sun: THREE.DirectionalLight;
 
   constructor(private readonly mount: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -74,21 +75,18 @@ export class WorldRenderer {
     this.scene.fog = new THREE.Fog(0x9fc8e8, 140, 320);
 
     const hemi = new THREE.HemisphereLight(0xfdf6e3, 0x5d5a52, 1.0);
-    const sun = new THREE.DirectionalLight(0xfff1d0, 1.85);
-    sun.position.set(60, 90, 30);
-    sun.castShadow = true;
-    sun.shadow.mapSize.set(4096, 4096);
-    sun.shadow.bias = -0.0005;
-    sun.shadow.normalBias = 0.05;
-    const sc = sun.shadow.camera;
-    sc.left = -78;
-    sc.right = 78;
-    sc.top = 78;
-    sc.bottom = -78;
-    sc.near = 20;
-    sc.far = 320;
-    sc.updateProjectionMatrix();
-    this.scene.add(hemi, sun);
+    this.sun = new THREE.DirectionalLight(0xfff1d0, 1.85);
+    this.sun.position.set(60, 90, 30);
+    this.sun.castShadow = true;
+    this.sun.shadow.mapSize.set(4096, 4096);
+    this.sun.shadow.bias = -0.0005;
+    this.sun.shadow.normalBias = 0.05;
+    this.sun.shadow.camera.near = 20;
+    this.sun.shadow.camera.far = 320;
+    // The frustum extent is sized to the map in `buildCity`; this is the
+    // default for the empty boot scene.
+    this.fitShadowToMap(128);
+    this.scene.add(hemi, this.sun);
 
     this.highlight = makeHighlight();
     this.highlight.visible = false;
@@ -127,10 +125,23 @@ export class WorldRenderer {
     );
     this.zoneOverlay.rebuild(city, zoneColor);
     this.utilities.setShowPipes(false);
+    this.fitShadowToMap(Math.max(city.grid.width, city.grid.height));
     this.isoCamera.setMapExtent(
       (city.grid.width / 2) * TILE,
       (city.grid.height / 2) * TILE,
     );
+  }
+
+  /** Size the sun's shadow frustum so it covers the whole map. */
+  private fitShadowToMap(mapTiles: number): void {
+    const half = (mapTiles / 2) * TILE * 1.3;
+    const sc = this.sun.shadow.camera;
+    sc.left = -half;
+    sc.right = half;
+    sc.top = half;
+    sc.bottom = -half;
+    sc.far = Math.max(320, half * 3);
+    sc.updateProjectionMatrix();
   }
 
   rebuildRoads(city: CityData): void {
@@ -145,6 +156,7 @@ export class WorldRenderer {
 
   rebuildUtilities(city: CityData): void {
     this.utilities?.rebuild(city);
+    this.trees?.rebuild(city);
   }
 
   rebuildBuildings(city: CityData): void {
