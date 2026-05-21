@@ -11,6 +11,8 @@ import { plantGeometry, pumpGeometry, pylonGeometry } from "./UtilityRenderer";
 import { sedanGeometry, vanGeometry, truckGeometry } from "./CarRenderer";
 import { TerrainMesh } from "./TerrainMesh";
 import { RoadInstances } from "./RoadInstances";
+import { TrafficLightRenderer } from "./TrafficLightRenderer";
+import type { Intersection } from "../sim/systems/IntersectionSystem";
 
 /** World-space gap between gallery pads. */
 const SPACING = 3;
@@ -53,6 +55,7 @@ export class SandboxGallery {
   private readonly labels: THREE.Sprite[] = [];
   private terrain?: TerrainMesh;
   private roads?: RoadInstances;
+  private junctionLights?: TrafficLightRenderer;
   private ground?: THREE.Mesh;
 
   /** Lay out every model and add the gallery to `scene`. */
@@ -121,6 +124,7 @@ export class SandboxGallery {
     this.padMat.dispose();
     this.terrain?.dispose();
     this.roads?.dispose();
+    this.junctionLights?.dispose();
     this.ground?.geometry.dispose();
     (this.ground?.material as THREE.Material | undefined)?.dispose();
   }
@@ -199,6 +203,18 @@ export class SandboxGallery {
     this.roads.rebuild(patch);
     this.roads.group.position.set(x, 0, z);
     this.group.add(this.roads.group);
+
+    // Signal the central 4-way so the gallery previews the traffic-light model.
+    const junction: Intersection = {
+      tile: patch.grid.index(3, 3),
+      kind: "light",
+      offset: 0,
+    };
+    this.junctionLights = new TrafficLightRenderer();
+    this.junctionLights.rebuild(patch, [junction]);
+    this.junctionLights.update(0); // static frame: one axis green, the other red
+    this.junctionLights.group.position.set(x, 0, z);
+    this.group.add(this.junctionLights.group);
 
     const label = this.makeLabel("Road junction");
     label.position.set(x, 1.2, z);
