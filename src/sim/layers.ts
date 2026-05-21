@@ -50,6 +50,8 @@ export const Dirty = {
   Zone: 1 << 5,
   /** Power lines, pipes, or structures changed — renderer rebuilds utilities. */
   Utility: 1 << 6,
+  /** A service building was placed or removed — coverage needs recomputing. */
+  Coverage: 1 << 7,
 } as const;
 
 export type DirtyFlag = (typeof Dirty)[keyof typeof Dirty];

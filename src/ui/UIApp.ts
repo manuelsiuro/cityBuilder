@@ -8,6 +8,7 @@ import { SystemBar, type SystemAction, type SystemIcons } from "./components/Sys
 import { Minimap } from "./components/Minimap";
 import { Notifications } from "./components/Notifications";
 import { SelectionReadout } from "./components/SelectionReadout";
+import { TileInspector, type TileInfo } from "./components/TileInspector";
 import { RadioPlayer } from "./components/RadioPlayer";
 import type { RadioService } from "../radio/RadioService";
 import type { Tool } from "../input/ToolController";
@@ -45,6 +46,7 @@ export class UIApp {
   private minimap?: Minimap;
   private notifications?: Notifications;
   private selectionReadout?: SelectionReadout;
+  private inspector?: TileInspector;
   private radio?: RadioPlayer;
   private pauseBanner?: Text;
   private menu?: MainMenu;
@@ -75,6 +77,7 @@ export class UIApp {
     this.budget = new BudgetBar(await loadOptionalTexture("coin"));
     this.notifications = new Notifications();
     this.selectionReadout = new SelectionReadout();
+    this.inspector = new TileInspector();
     this.radio = new RadioPlayer(radio);
     this.pauseBanner = new Text({
       text: "PAUSED",
@@ -99,6 +102,7 @@ export class UIApp {
       this.budget.container,
       this.notifications.container,
       this.selectionReadout.container,
+      this.inspector.container,
       this.radio.container,
       this.pauseBanner,
     );
@@ -144,8 +148,14 @@ export class UIApp {
       this.radio?.handlePress(x, y) === true ||
       this.palette?.hitTest(x, y) != null ||
       this.overlay?.hitTest(x, y) === true ||
-      this.system?.hitTest(x, y) === true
+      this.system?.hitTest(x, y) === true ||
+      this.inspector?.hitTest(x, y) === true
     );
+  }
+
+  /** Update the tool tooltip as the pointer hovers the HUD. */
+  handleHover(x: number, y: number): void {
+    this.palette?.handleHover(x, y);
   }
 
   /** Route a drag to the radio volume slider. Returns true if it consumed it. */
@@ -160,6 +170,11 @@ export class UIApp {
 
   /** Activate the widget under a tap. Returns true if one was hit. */
   handleTap(x: number, y: number): boolean {
+    if (this.inspector?.closeHitTest(x, y)) {
+      this.inspector.hide();
+      return true;
+    }
+    if (this.inspector?.hitTest(x, y)) return true;
     if (this.radio?.handleTap(x, y)) return true;
     const tool = this.palette?.hitTest(x, y);
     if (tool) {
@@ -175,6 +190,21 @@ export class UIApp {
 
   setActiveTool(tool: Tool): void {
     this.palette?.setActive(tool);
+  }
+
+  /** Select a tool as if its palette button were clicked (keyboard shortcut). */
+  chooseTool(tool: Tool): void {
+    this.palette?.select(tool);
+  }
+
+  /** Populate and reveal the tile-inspector panel. */
+  showTileInfo(info: TileInfo): void {
+    this.inspector?.show(info);
+  }
+
+  /** Hide the tile-inspector panel. */
+  hideTileInfo(): void {
+    this.inspector?.hide();
   }
 
   /** Show the live tile-count / cost readout for a rubber-band selection. */
@@ -202,8 +232,8 @@ export class UIApp {
     this.minimap?.update(city, dtMs);
   }
 
-  notify(text: string): void {
-    this.notifications?.push(text);
+  notify(text: string, level: "info" | "warn" = "info"): void {
+    this.notifications?.push(text, level);
   }
 
   setPaused(paused: boolean): void {
@@ -226,6 +256,7 @@ export class UIApp {
     this.minimap?.layout(width, height);
     this.notifications?.layout();
     this.selectionReadout?.layout(width);
+    this.inspector?.layout(width, height);
     this.radio?.layout();
     this.pauseBanner?.position.set(width / 2, height / 2 - 40);
     this.menu?.layout(width, height);
@@ -239,6 +270,8 @@ const ICON_TOOLS: Tool[] = [
   "inspect", "road", "bulldoze", "raiseTerrain", "lowerTerrain",
   "zoneR", "zoneC", "zoneI",
   "powerLine", "powerPlant", "pipe", "waterPump",
+  "police", "fire", "hospital",
+  "parkSmall", "park", "plaza", "sportsField", "botanicalGarden",
 ];
 
 /** Load the generated tool glyphs; a missing icon falls back to text only. */

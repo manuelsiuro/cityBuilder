@@ -2,10 +2,26 @@ import type { CityData } from "../CityData";
 import { Biome, TerrainType, Zone } from "../layers";
 import { BIOME_LAND_VALUE_MOD, BIOME_POLLUTION_MOD } from "../BiomeMap";
 
+/** Land value (0–255 scale) of a plain inland tile with nothing nearby. */
 const BASE_VALUE = 90;
+/** Peak scenic bonus added to a tile right beside water. */
 const WATER_BONUS = 42;
+/** Tiles over which the water bonus fades linearly to zero. */
 const WATER_RANGE = 3;
+/** Tiles over which an industrial building's pollution spreads. */
 const POLLUTION_RANGE = 4;
+/** Pollution emitted at the source per industrial development level. */
+const POLLUTION_PER_LEVEL = 26;
+/** Traffic-load units that cost one point of land value. */
+const CONGESTION_DIVISOR = 4;
+/** Police-coverage units that add one point of land value (safety premium). */
+const POLICE_DIVISOR = 9;
+/** Park-coverage units that add one point of land value (amenity premium). */
+const PARK_DIVISOR = 7;
+/** Health-coverage units that add one point of land value (care premium). */
+const HEALTH_DIVISOR = 10;
+/** Active-crime units that cost one point of land value. */
+const CRIME_DIVISOR = 5;
 
 /**
  * Computes per-tile land value: a base value, plus a scenic bonus near water,
@@ -33,17 +49,24 @@ export class LandValueSystem {
     }
 
     for (let i = 0; i < grid.size; i++) {
-      // Heavy traffic depresses desirability.
-      const congestion = Math.floor(city.trafficLoad[i] / 4);
+      // Heavy traffic depresses desirability; nearby police and parks lift it.
+      const congestion = Math.floor(city.trafficLoad[i] / CONGESTION_DIVISOR);
       const biomeMod = BIOME_LAND_VALUE_MOD[city.biome[i] as Biome];
-      const v = BASE_VALUE + this.waterBonus[i] + biomeMod - city.pollution[i] - congestion;
+      const services =
+        Math.floor(city.policeCoverage[i] / POLICE_DIVISOR) +
+        Math.floor(city.parkCoverage[i] / PARK_DIVISOR) +
+        Math.floor(city.healthCoverage[i] / HEALTH_DIVISOR);
+      const crime = Math.floor(city.crime[i] / CRIME_DIVISOR);
+      const v =
+        BASE_VALUE + this.waterBonus[i] + biomeMod + services -
+        city.pollution[i] - congestion - crime;
       city.landValue[i] = Math.max(0, Math.min(255, v));
     }
   }
 
   private emitPollution(city: CityData, cx: number, cy: number, level: number): void {
     const { grid } = city;
-    const strength = level * 26;
+    const strength = level * POLLUTION_PER_LEVEL;
     for (let dy = -POLLUTION_RANGE; dy <= POLLUTION_RANGE; dy++) {
       for (let dx = -POLLUTION_RANGE; dx <= POLLUTION_RANGE; dx++) {
         const x = cx + dx;

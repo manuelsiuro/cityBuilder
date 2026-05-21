@@ -1,7 +1,15 @@
 import * as THREE from "three";
 import type { CityData } from "../sim/CityData";
 import { Biome, TerrainType } from "../sim/layers";
-import { BASE_Y, ELEV_STEP, TILE, WATER_Y, tileCornerX, tileCornerZ } from "./constants";
+import {
+  BASE_Y,
+  ELEV_STEP,
+  TILE,
+  WATER_Y,
+  hashTile,
+  tileCornerX,
+  tileCornerZ,
+} from "./constants";
 
 /**
  * Builds the city terrain as a single stepped mesh — flat tile tops with
@@ -68,7 +76,7 @@ function tileColor(city: CityData, i: number, out: THREE.Color): void {
     out.lerp(_lerpTarget.setHex(0xffffff), t * 0.12);
   }
   // Subtle deterministic per-tile jitter breaks up the flat ground.
-  const j = (terrainHash(city.grid.x(i), city.grid.y(i)) % 1000) / 1000;
+  const j = (hashTile(city.grid.x(i), city.grid.y(i)) % 1000) / 1000;
   out.multiplyScalar(0.94 + j * 0.12);
 }
 const _lerpTarget = new THREE.Color();
@@ -90,13 +98,6 @@ function hasNeighbor(city: CityData, i: number, water: boolean): boolean {
     if (isWater === water) return true;
   }
   return false;
-}
-
-/** Deterministic per-tile hash for ground-colour variation. */
-function terrainHash(x: number, y: number): number {
-  let h = (Math.imul(x, 374761393) ^ Math.imul(y, 668265263)) >>> 0;
-  h ^= h >>> 13;
-  return h >>> 0;
 }
 
 function buildGeometry(city: CityData): THREE.BufferGeometry {

@@ -24,6 +24,10 @@ export type GameEventMap = {
   "terrain:changed": void;
   /** A new month closed — carries the budget ledger for the HUD. */
   "budget:changed": BudgetReport;
+  /** A player-facing message — a rejected action, a warning, an event. */
+  "notice": { level: "info" | "warn"; message: string };
+  /** Service-building coverage recomputed — renderer refreshes the overlay. */
+  "coverage:changed": void;
 };
 
 export type GameEventBus = EventBus<GameEventMap>;

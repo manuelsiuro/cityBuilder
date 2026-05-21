@@ -46,6 +46,17 @@ export function tileSurfaceY(city: CityData, index: number): number {
     : city.elevation[index] * ELEV_STEP;
 }
 
+/**
+ * Deterministic per-tile hash used across renderers for placement variety —
+ * ground-colour jitter, street-lamp placement, tree rotation. Same (x, y)
+ * always yields the same value, so independent renderers stay consistent.
+ */
+export function hashTile(x: number, y: number): number {
+  let h = (Math.imul(x, 374761393) ^ Math.imul(y, 668265263)) >>> 0;
+  h ^= h >>> 13;
+  return h >>> 0;
+}
+
 /** Convert a world X/Z back to integer tile coordinates. */
 export function worldToTile(
   worldX: number,

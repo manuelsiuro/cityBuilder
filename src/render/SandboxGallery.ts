@@ -7,8 +7,25 @@ import {
   createBuildingGeometry,
   treeGeometry,
 } from "./meshlib/buildingFactory";
-import { plantGeometry, pumpGeometry, pylonGeometry } from "./UtilityRenderer";
+import {
+  plantGeometry,
+  pumpGeometry,
+  pylonGeometry,
+  policeGeometry,
+  fireStationGeometry,
+  hospitalGeometry,
+  parkGeometry,
+  smallParkGeometries,
+  plazaGeometry,
+  sportsFieldGeometry,
+  botanicalGardenGeometry,
+} from "./UtilityRenderer";
 import { sedanGeometry, vanGeometry, truckGeometry } from "./CarRenderer";
+import {
+  fireTruckGeometry,
+  policeCarGeometry,
+  ambulanceGeometry,
+} from "./ServiceVehicleRenderer";
 import { TerrainMesh } from "./TerrainMesh";
 import { RoadInstances } from "./RoadInstances";
 import { TrafficLightRenderer } from "./TrafficLightRenderer";
@@ -76,13 +93,28 @@ export class SandboxGallery {
     }
 
     // Utilities, vehicles and trees on two extra rows of five.
+    const smallParks = smallParkGeometries();
     const extras: { geo: THREE.BufferGeometry; name: string; lift: number }[] = [
       { geo: plantGeometry(), name: "Power Plant", lift: 0 },
       { geo: pumpGeometry(), name: "Water Pump", lift: 0 },
       { geo: pylonGeometry(), name: "Power Pylon", lift: 0 },
+      { geo: policeGeometry(), name: "Police Station", lift: 0 },
+      { geo: fireStationGeometry(), name: "Fire Station", lift: 0 },
+      { geo: hospitalGeometry(), name: "Hospital", lift: 0 },
+      { geo: parkGeometry(), name: "Park", lift: 0 },
+      { geo: plazaGeometry(), name: "Plaza", lift: 0 },
+      { geo: sportsFieldGeometry(), name: "Sports Field", lift: 0 },
+      { geo: botanicalGardenGeometry(), name: "Botanical Garden", lift: 0 },
+      { geo: smallParks[0], name: "Small Park A", lift: 0 },
+      { geo: smallParks[1], name: "Small Park B", lift: 0 },
+      { geo: smallParks[2], name: "Small Park C", lift: 0 },
+      { geo: smallParks[3], name: "Small Park D", lift: 0 },
       { geo: sedanGeometry(), name: "Sedan", lift: 0.11 },
       { geo: vanGeometry(), name: "Van", lift: 0.11 },
       { geo: truckGeometry(), name: "Truck", lift: 0.11 },
+      { geo: fireTruckGeometry(), name: "Fire Truck", lift: 0.11 },
+      { geo: policeCarGeometry(), name: "Police Car", lift: 0.11 },
+      { geo: ambulanceGeometry(), name: "Ambulance", lift: 0.11 },
       { geo: treeGeometry(0), name: "Tree A", lift: 0 },
       { geo: treeGeometry(1), name: "Tree B", lift: 0 },
       { geo: treeGeometry(2), name: "Tree C", lift: 0 },
@@ -94,7 +126,7 @@ export class SandboxGallery {
     });
 
     // Sample terrain and road patches, rendered by the real renderers.
-    const patchRow = extrasRow0 + 3;
+    const patchRow = extrasRow0 + Math.ceil(extras.length / 5);
     this.addTerrainPatch(2 * SPACING, patchRow * SPACING);
     this.addRoadPatch(6 * SPACING, patchRow * SPACING);
 

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { CityData } from "../src/sim/CityData";
-import { applyCommand } from "../src/sim/commands";
+import { applyCommand, CmdResult } from "../src/sim/commands";
 import { Dirty, MAX_ELEVATION, TerrainType, Zone } from "../src/sim/layers";
 import { BUILDING } from "../src/sim/buildings";
 
@@ -141,5 +141,73 @@ describe("applyCommand", () => {
     const city = new CityData(8, 8);
     expect(() => applyCommand(city, { type: "buildRoad", x: 99, y: 0 })).not.toThrow();
     expect(city.isDirty(Dirty.Road)).toBe(false);
+  });
+
+  it("reports Ok for a successful build", () => {
+    const city = new CityData(8, 8);
+    expect(applyCommand(city, { type: "buildRoad", x: 3, y: 3 })).toBe(CmdResult.Ok);
+  });
+
+  it("reports NoFunds when the player cannot afford a command", () => {
+    const city = new CityData(8, 8);
+    city.funds = 2;
+    expect(applyCommand(city, { type: "buildRoad", x: 3, y: 3 })).toBe(CmdResult.NoFunds);
+    expect(city.road[city.grid.index(3, 3)]).toBe(0);
+  });
+
+  it("reports Water, Occupied and Blocked rejections distinctly", () => {
+    const city = new CityData(8, 8);
+    city.terrainType[city.grid.index(2, 2)] = TerrainType.Water;
+    expect(applyCommand(city, { type: "buildRoad", x: 2, y: 2 })).toBe(CmdResult.Water);
+
+    applyCommand(city, { type: "buildRoad", x: 4, y: 4 });
+    expect(applyCommand(city, { type: "buildRoad", x: 4, y: 4 })).toBe(CmdResult.Occupied);
+
+    expect(applyCommand(city, { type: "bulldoze", x: 6, y: 6 })).toBe(CmdResult.Blocked);
+  });
+
+  it("places service buildings, charges their cost, and marks coverage dirty", () => {
+    const city = new CityData(8, 8);
+    const before = city.funds;
+    applyCommand(city, { type: "placeBuilding", x: 2, y: 2, building: BUILDING.PoliceStation });
+    applyCommand(city, { type: "placeBuilding", x: 4, y: 4, building: BUILDING.FireStation });
+    applyCommand(city, { type: "placeBuilding", x: 6, y: 6, building: BUILDING.Park });
+    expect(city.buildingId[city.grid.index(2, 2)]).toBe(BUILDING.PoliceStation);
+    expect(city.buildingId[city.grid.index(4, 4)]).toBe(BUILDING.FireStation);
+    expect(city.buildingId[city.grid.index(6, 6)]).toBe(BUILDING.Park);
+    expect(city.funds).toBe(before - 800 - 800 - 150);
+    expect(city.isDirty(Dirty.Coverage)).toBe(true);
+  });
+
+  it("places park variants and the hospital, charging each building's cost", () => {
+    const city = new CityData(12, 12);
+    const before = city.funds;
+    applyCommand(city, { type: "placeBuilding", x: 1, y: 1, building: BUILDING.ParkSmall });
+    applyCommand(city, { type: "placeBuilding", x: 3, y: 3, building: BUILDING.Plaza });
+    applyCommand(city, { type: "placeBuilding", x: 5, y: 5, building: BUILDING.SportsField });
+    applyCommand(city, { type: "placeBuilding", x: 7, y: 7, building: BUILDING.BotanicalGarden });
+    applyCommand(city, { type: "placeBuilding", x: 9, y: 9, building: BUILDING.Hospital });
+    expect(city.buildingId[city.grid.index(1, 1)]).toBe(BUILDING.ParkSmall);
+    expect(city.buildingId[city.grid.index(9, 9)]).toBe(BUILDING.Hospital);
+    expect(city.funds).toBe(before - 80 - 200 - 300 - 500 - 1200);
+    expect(city.isDirty(Dirty.Coverage)).toBe(true);
+  });
+
+  it("refuses a service building the player cannot afford", () => {
+    const city = new CityData(8, 8);
+    city.funds = 100;
+    expect(
+      applyCommand(city, { type: "placeBuilding", x: 2, y: 2, building: BUILDING.FireStation }),
+    ).toBe(CmdResult.NoFunds);
+    expect(city.buildingId[city.grid.index(2, 2)]).toBe(BUILDING.None);
+  });
+
+  it("reports MaxElevation at the terrain limits", () => {
+    const city = new CityData(8, 8);
+    const i = city.grid.index(4, 4);
+    city.elevation[i] = MAX_ELEVATION;
+    expect(applyCommand(city, { type: "raiseTerrain", x: 4, y: 4 })).toBe(CmdResult.MaxElevation);
+    city.elevation[i] = 1;
+    expect(applyCommand(city, { type: "lowerTerrain", x: 4, y: 4 })).toBe(CmdResult.MaxElevation);
   });
 });

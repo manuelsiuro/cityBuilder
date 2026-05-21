@@ -19,9 +19,5 @@ export class RoadSystem {
     this.graph.rebuild(city);
     city.clearDirty(Dirty.Road);
     this.events.emit("roads:changed", undefined);
-
-    console.log(
-      `[roads] ${this.graph.roadTileCount} tiles in ${this.graph.networkCount} network(s)`,
-    );
   }
 }

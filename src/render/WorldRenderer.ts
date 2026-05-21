@@ -10,13 +10,19 @@ import { TileOverlay, type TileColorFn } from "./TileOverlay";
 import { UtilityRenderer } from "./UtilityRenderer";
 import { TreeRenderer } from "./TreeRenderer";
 import { TrafficLightRenderer } from "./TrafficLightRenderer";
+import { FireRenderer } from "./FireRenderer";
+import { ServiceVehicleRenderer } from "./ServiceVehicleRenderer";
+import { IncidentMarkerRenderer } from "./IncidentMarkerRenderer";
 import type { Car } from "../sim/systems/TrafficSystem";
+import type { ServiceVehicle } from "../sim/systems/DispatchSystem";
+import type { Incident } from "../sim/systems/IncidentSystem";
 import type { Intersection } from "../sim/systems/IntersectionSystem";
 import { TILE, tileCenterX, tileCenterZ, tileSurfaceY } from "./constants";
 import type { TileCoord, TileRect } from "./Picker";
 
-/** Power / water coverage overlay mode. */
-export type OverlayMode = "off" | "power" | "water";
+/** Coverage overlay mode — utilities and city-service reach. */
+export type OverlayMode =
+  | "off" | "power" | "water" | "police" | "fire" | "health" | "crime";
 
 const ZONE_COLOR: Record<number, number> = {
   [Zone.Residential]: 0x49c46a,
@@ -38,6 +44,46 @@ const waterColor: TileColorFn = (city, i) => {
   return city.watered[i] ? 0x3aa6e0 : 0xd6464a;
 };
 
+/** Linear blend between two packed RGB hex colours, `t` in 0..1. */
+function lerpHex(a: number, b: number, t: number): number {
+  const ar = (a >> 16) & 255, ag = (a >> 8) & 255, ab = a & 255;
+  const br = (b >> 16) & 255, bg = (b >> 8) & 255, bb = b & 255;
+  const r = Math.round(ar + (br - ar) * t);
+  const g = Math.round(ag + (bg - ag) * t);
+  const bl = Math.round(ab + (bb - ab) * t);
+  return (r << 16) | (g << 8) | bl;
+};
+
+const policeColor: TileColorFn = (city, i) => {
+  const c = city.policeCoverage[i];
+  return c > 0 ? lerpHex(0x24507e, 0x6fb6ff, c / 255) : null;
+};
+
+const fireColor: TileColorFn = (city, i) => {
+  const c = city.fireCoverage[i];
+  return c > 0 ? lerpHex(0x7a3520, 0xffa256, c / 255) : null;
+};
+
+const healthColor: TileColorFn = (city, i) => {
+  const c = city.healthCoverage[i];
+  return c > 0 ? lerpHex(0x2f6a55, 0x6fe0b0, c / 255) : null;
+};
+
+const crimeColor: TileColorFn = (city, i) => {
+  const c = city.crime[i];
+  return c > 0 ? lerpHex(0x5a2740, 0xff5a7a, c / 255) : null;
+};
+
+/** Tile-colour function backing each non-"off" overlay mode. */
+const OVERLAY_COLORS: Record<Exclude<OverlayMode, "off">, TileColorFn> = {
+  power: powerColor,
+  water: waterColor,
+  police: policeColor,
+  fire: fireColor,
+  health: healthColor,
+  crime: crimeColor,
+};
+
 /**
  * Owns the Three.js renderer, scene, lights, camera and every world layer
  * (terrain, roads, zones, utilities, overlays). Strictly downstream of the
@@ -55,6 +101,9 @@ export class WorldRenderer {
   private trafficLights?: TrafficLightRenderer;
   private utilities?: UtilityRenderer;
   private trees?: TreeRenderer;
+  private fire?: FireRenderer;
+  private serviceVehicles?: ServiceVehicleRenderer;
+  private incidentMarkers?: IncidentMarkerRenderer;
   private zoneOverlay?: TileOverlay;
   private networkOverlay?: TileOverlay;
   private rectHighlight?: TileOverlay;
@@ -105,6 +154,9 @@ export class WorldRenderer {
     this.trafficLights = new TrafficLightRenderer();
     this.utilities = new UtilityRenderer(city);
     this.trees = new TreeRenderer(city);
+    this.fire = new FireRenderer(city.grid.size);
+    this.serviceVehicles = new ServiceVehicleRenderer(24);
+    this.incidentMarkers = new IncidentMarkerRenderer(64);
     this.zoneOverlay = new TileOverlay(city.grid.size, 0.05, 0.5);
     this.networkOverlay = new TileOverlay(city.grid.size, 0.14, 0.6);
     this.networkOverlay.visible = false;
@@ -119,6 +171,9 @@ export class WorldRenderer {
       this.trafficLights.group,
       this.utilities.group,
       this.trees.group,
+      this.fire.group,
+      this.serviceVehicles.group,
+      this.incidentMarkers.group,
       this.zoneOverlay.mesh,
       this.networkOverlay.mesh,
       this.rectHighlight.mesh,
@@ -196,8 +251,27 @@ export class WorldRenderer {
     this.trafficLights?.update(tick);
   }
 
+  /** Re-place flickering fire flames from the current `fire` layer. */
+  updateFire(city: CityData): void {
+    this.fire?.update(city, performance.now());
+  }
+
+  /** Interpolate and re-place emergency-vehicle instances. Call every frame. */
+  updateServiceVehicles(
+    vehicles: readonly ServiceVehicle[],
+    city: CityData,
+    alpha: number,
+  ): void {
+    this.serviceVehicles?.sync(vehicles, city, alpha);
+  }
+
+  /** Re-place incident beacons from the live incident list. Call every frame. */
+  updateIncidents(incidents: readonly Incident[], city: CityData): void {
+    this.incidentMarkers?.sync(incidents, city, performance.now());
+  }
+
   /** Refresh the coverage overlay if it is currently showing the given layer. */
-  refreshOverlay(city: CityData, layer: "power" | "water"): void {
+  refreshOverlay(city: CityData, layer: Exclude<OverlayMode, "off">): void {
     if (this.overlayMode === layer) this.applyOverlay(city);
   }
 
@@ -275,6 +349,9 @@ export class WorldRenderer {
     this.trafficLights?.dispose();
     this.utilities?.dispose();
     this.trees?.dispose();
+    this.fire?.dispose();
+    this.serviceVehicles?.dispose();
+    this.incidentMarkers?.dispose();
     this.zoneOverlay?.dispose();
     this.networkOverlay?.dispose();
     this.rectHighlight?.dispose();
@@ -286,10 +363,7 @@ export class WorldRenderer {
 
   private applyOverlay(city: CityData): void {
     if (!this.networkOverlay || this.overlayMode === "off") return;
-    this.networkOverlay.rebuild(
-      city,
-      this.overlayMode === "power" ? powerColor : waterColor,
-    );
+    this.networkOverlay.rebuild(city, OVERLAY_COLORS[this.overlayMode]);
   }
 }
 

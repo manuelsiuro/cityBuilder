@@ -5,7 +5,7 @@ import { CityData } from "./CityData";
 import { generateTerrain } from "./TerrainGen";
 import { DEFAULT_MAP_SETTINGS, MAP_SIZES, type MapSettings } from "./MapSettings";
 import { formatDate, tickToDate, type SimDate } from "./Tick";
-import { applyCommand, type Command } from "./commands";
+import { applyCommand, CmdResult, type Command } from "./commands";
 import type { GameEventMap } from "./events";
 import { Dirty } from "./layers";
 import type { SaveFile } from "../save/schema";
@@ -15,6 +15,10 @@ import { RoadSystem } from "./systems/RoadSystem";
 import { IntersectionSystem, type Intersection } from "./systems/IntersectionSystem";
 import { PowerSystem } from "./systems/PowerSystem";
 import { WaterSystem } from "./systems/WaterSystem";
+import { CoverageSystem } from "./systems/CoverageSystem";
+import { DisasterSystem } from "./systems/DisasterSystem";
+import { IncidentSystem, type Incident } from "./systems/IncidentSystem";
+import { DispatchSystem, type ServiceVehicle } from "./systems/DispatchSystem";
 import { LandValueSystem } from "./systems/LandValueSystem";
 import { PopulationSystem } from "./systems/PopulationSystem";
 import { RCISystem } from "./systems/RCISystem";
@@ -41,6 +45,10 @@ export class World {
   private readonly intersectionSystem: IntersectionSystem;
   private readonly powerSystem: PowerSystem;
   private readonly waterSystem: WaterSystem;
+  private readonly coverageSystem: CoverageSystem;
+  private readonly disasterSystem: DisasterSystem;
+  private readonly incidentSystem: IncidentSystem;
+  private readonly dispatchSystem = new DispatchSystem();
   private readonly landValueSystem = new LandValueSystem();
   private readonly populationSystem = new PopulationSystem();
   private readonly rciSystem = new RCISystem();
@@ -49,6 +57,8 @@ export class World {
   private readonly budgetSystem: BudgetSystem;
   private _tickCount = 0;
   private _seed: number;
+  /** Tick a given notice message was last emitted — drives throttling. */
+  private readonly noticeAt = new Map<string, number>();
   /** Map-generation parameters this world was built from. */
   settings: MapSettings;
 
@@ -70,6 +80,9 @@ export class World {
     this.intersectionSystem = new IntersectionSystem(this.events);
     this.powerSystem = new PowerSystem(this.events);
     this.waterSystem = new WaterSystem(this.events);
+    this.coverageSystem = new CoverageSystem(this.events);
+    this.disasterSystem = new DisasterSystem(this.random, this.events);
+    this.incidentSystem = new IncidentSystem(this.random, this.events);
     this.developmentSystem = new DevelopmentSystem(this.random, this.events);
     this.trafficSystem = new TrafficSystem(
       this.roadGraph,
@@ -90,6 +103,16 @@ export class World {
     return this.intersectionSystem.list;
   }
 
+  /** Live crime / medical incidents — read by the renderer and dispatch. */
+  get incidents(): readonly Incident[] {
+    return this.incidentSystem.incidents;
+  }
+
+  /** Live emergency vehicles — read by the renderer. */
+  get serviceVehicles(): readonly ServiceVehicle[] {
+    return this.dispatchSystem.vehicles;
+  }
+
   /** Sandbox hook: force a fixed car-fleet size regardless of population. */
   setCarTargetOverride(count: number | null): void {
     this.trafficSystem.targetOverride = count;
@@ -103,10 +126,14 @@ export class World {
   tick(_tickMs: number): void {
     this._tickCount++;
 
-    // Apply queued player intents, then run the system pipeline.
+    // Apply queued player intents, then run the system pipeline. A drag that
+    // can't be afforded surfaces one throttled toast — other rejections (e.g.
+    // painting a road over an existing one) are normal and stay silent.
+    let rejectedForFunds = false;
     for (const cmd of this.commands.drain()) {
-      applyCommand(this.city, cmd);
+      if (applyCommand(this.city, cmd) === CmdResult.NoFunds) rejectedForFunds = true;
     }
+    if (rejectedForFunds) this.notice("warn", "Not enough funds");
 
     // Layers with no dedicated system just notify the renderer and clear.
     if (this.city.isDirty(Dirty.Zone)) {
@@ -126,6 +153,10 @@ export class World {
     this.intersectionSystem.update(this.city);
     this.powerSystem.update(this.city);
     this.waterSystem.update(this.city);
+    this.coverageSystem.update(this.city);
+    this.disasterSystem.update(this.city, this._tickCount);
+    this.incidentSystem.update(this.city, this._tickCount);
+    this.dispatchSystem.update(this.city, this.incidentSystem.incidents);
     this.trafficSystem.update(this.city, this._tickCount);
 
     // Slow systems run once per in-game day — too costly and too twitchy
@@ -137,6 +168,17 @@ export class World {
       this.developmentSystem.update(this.city);
     }
     this.budgetSystem.update(this.city, this._tickCount);
+  }
+
+  /**
+   * Emit a player-facing notice, suppressing a repeat of the same message
+   * within ~3 seconds (30 ticks) so a held-down drag doesn't spam the HUD.
+   */
+  private notice(level: "info" | "warn", message: string): void {
+    const last = this.noticeAt.get(message);
+    if (last !== undefined && this._tickCount - last < 30) return;
+    this.noticeAt.set(message, this._tickCount);
+    this.events.emit("notice", { level, message });
   }
 
   /**
@@ -165,6 +207,12 @@ export class World {
     this._seed = file.seed;
     this._tickCount = file.meta.simTick;
     this.random.state = file.rngState;
+    this.noticeAt.clear();
+    c.fire.fill(0); // fires are transient — a loaded city starts unburnt
+    c.crime.fill(0); // incidents are transient too
+    this.disasterSystem.clear();
+    this.incidentSystem.clear();
+    this.dispatchSystem.clear();
 
     this.refreshAfterBulkChange();
   }
@@ -177,6 +225,10 @@ export class World {
     this.city.reset();
     generateTerrain(this.city, this.random, this.settings);
     this._tickCount = 0;
+    this.noticeAt.clear();
+    this.disasterSystem.clear();
+    this.incidentSystem.clear();
+    this.dispatchSystem.clear();
     this.refreshAfterBulkChange();
   }
 
@@ -189,7 +241,9 @@ export class World {
     const c = this.city;
     this.trafficSystem.clear();
     this.landValueSystem.reset(); // terrain changed — drop the scenic cache
-    c.markDirty(Dirty.Road | Dirty.Power | Dirty.Water | Dirty.Zone | Dirty.Utility);
+    c.markDirty(
+      Dirty.Road | Dirty.Power | Dirty.Water | Dirty.Zone | Dirty.Utility | Dirty.Coverage,
+    );
     // The renderer rebuilds terrain directly via `rebuildAll` — drop the flag
     // so the next tick doesn't fire a redundant `terrain:changed` rebuild.
     c.clearDirty(Dirty.Terrain);
@@ -198,6 +252,7 @@ export class World {
     this.intersectionSystem.update(c);
     this.powerSystem.update(c);
     this.waterSystem.update(c);
+    this.coverageSystem.update(c);
     this.landValueSystem.update(c);
     this.populationSystem.update(c);
     this.rciSystem.update(c);

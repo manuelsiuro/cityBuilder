@@ -47,4 +47,22 @@ describe("BudgetSystem", () => {
 
     expect(report!.maintenance).toBeGreaterThan(0);
   });
+
+  it("charges upkeep for city-service buildings", () => {
+    const bare = new CityData(8, 8);
+    const withServices = new CityData(8, 8);
+    withServices.buildingId[0] = BUILDING.PoliceStation;
+    withServices.buildingId[1] = BUILDING.FireStation;
+    withServices.buildingId[2] = BUILDING.Park;
+
+    const report = (city: CityData): number => {
+      const events = new EventBus<GameEventMap>();
+      let r: GameEventMap["budget:changed"] | undefined;
+      events.on("budget:changed", (x) => (r = x));
+      new BudgetSystem(events).update(city, TICKS_PER_MONTH);
+      return r!.maintenance;
+    };
+
+    expect(report(withServices)).toBeGreaterThan(report(bare));
+  });
 });

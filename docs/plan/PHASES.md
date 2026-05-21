@@ -85,3 +85,43 @@ Architecture: `ARCHITECTURE.md` (next to this file).
 ---
 
 ## ✅ All phases complete — playable SimCity-style vertical slice.
+
+---
+
+## Phase 7 — Review-driven improvements  ✅ done
+
+Follows `docs/plan/REVIEW-IMPROVEMENTS.md`.
+
+- [x] **Cleanup:** shared `hashTile` in `render/constants.ts`; removed the
+  per-rebuild `console.log` in `RoadSystem`.
+- [x] **Action feedback:** `applyCommand` returns `CmdResult`; `World` emits
+  throttled `notice` events → HUD toasts. New `TileInspector` panel for the
+  Inspect tool. Tool tooltips + keyboard shortcuts in `ToolPalette`.
+- [x] **Traffic:** gridlocked cars get one A* re-route before retiring; spawn
+  budget scales with fleet size; tuning constants documented.
+- [x] **City services:** `PoliceStation` / `FireStation` / `Park` placed
+  structures, `CoverageSystem` computes police/fire/park coverage layers,
+  land value rises with police & park reach, Police/Fire map overlays.
+- [x] **Disasters:** transient `fire` layer + `DisasterSystem` (deterministic
+  ignition, spread, building damage, coverage suppression) + `FireRenderer`.
+- [x] **Verify:** `npm run typecheck` clean; `npm test` green (156 tests).
+
+## Phase 8 — Service vehicles, disasters & park variants  ✅ done
+
+- [x] **Park variants:** `ParkSmall` / `Plaza` / `SportsField` / `BotanicalGarden`
+  buildings with distinct cost / coverage curves; the Small Park renders one of
+  4 procedural visual variants chosen by tile hash. Tools, icons, budget upkeep,
+  sandbox gallery entries.
+- [x] **Hospital:** new `Hospital` building, `health` coverage type +
+  `healthCoverage` layer, land value rises with health reach, Health overlay.
+- [x] **Incidents:** `IncidentSystem` raises discrete crime & medical incidents
+  (crime in poorly-policed low-value areas; medical population-weighted, spiking
+  during fires). Open crime stamps a `crime` land-value penalty layer.
+- [x] **Disasters:** `DisasterSystem` extended with industrial explosions and a
+  rare city-wide earthquake (radial building damage + fires).
+- [x] **Dispatch:** `DispatchSystem` routes a fixed fleet over the road network
+  (A*) from the nearest station to fires and incidents — fire trucks add a
+  strong on-scene suppression bonus, police cars and ambulances resolve their
+  incident. `ServiceVehicleRenderer` (fire truck / police car / ambulance) and
+  `IncidentMarkerRenderer` (crime / medical beacons).
+- [x] **Verify:** `npm run typecheck` clean; `npm test` green (172 tests).

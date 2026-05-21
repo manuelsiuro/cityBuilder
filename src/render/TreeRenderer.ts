@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { CityData } from "../sim/CityData";
 import { treeGeometry } from "./meshlib/buildingFactory";
-import { TILE, tileCenterX, tileCenterZ, tileSurfaceY } from "./constants";
+import { TILE, hashTile, tileCenterX, tileCenterZ, tileSurfaceY } from "./constants";
 
 /**
  * Renders the forest scattered by the terrain generator: one instanced mesh of
@@ -41,7 +41,7 @@ export class TreeRenderer {
 
       const x = grid.x(i);
       const y = grid.y(i);
-      const hash = treeHash(x, y);
+      const hash = hashTile(x, y);
       // Jitter the tree off the tile centre so forests don't look gridded.
       const ox = (((hash >>> 9) & 0xff) / 255 - 0.5) * 0.6 * TILE;
       const oz = (((hash >>> 17) & 0xff) / 255 - 0.5) * 0.6 * TILE;
@@ -64,11 +64,4 @@ export class TreeRenderer {
     this.mesh.geometry.dispose();
     this.material.dispose();
   }
-}
-
-/** Deterministic per-tile hash for tree rotation jitter. */
-function treeHash(x: number, y: number): number {
-  let h = (Math.imul(x, 374761393) ^ Math.imul(y, 668265263)) >>> 0;
-  h ^= h >>> 13;
-  return h >>> 0;
 }

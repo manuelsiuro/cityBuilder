@@ -18,10 +18,29 @@ export type Tool =
   | "powerLine"
   | "powerPlant"
   | "pipe"
-  | "waterPump";
+  | "waterPump"
+  | "police"
+  | "fire"
+  | "hospital"
+  | "park"
+  | "parkSmall"
+  | "plaza"
+  | "sportsField"
+  | "botanicalGarden";
 
 /** Tools placed one tile at a time — a drag does not paint a line of them. */
-const POINT_TOOLS = new Set<Tool>(["powerPlant", "waterPump"]);
+const POINT_TOOLS = new Set<Tool>([
+  "powerPlant",
+  "waterPump",
+  "police",
+  "fire",
+  "hospital",
+  "park",
+  "parkSmall",
+  "plaza",
+  "sportsField",
+  "botanicalGarden",
+]);
 
 /** Tools applied to a rubber-band rectangle — emitted on stroke commit. */
 const RECT_TOOLS = new Set<Tool>([
@@ -172,6 +191,22 @@ export class ToolController {
         return { type: "placeBuilding", x, y, building: BUILDING.PowerPlant };
       case "waterPump":
         return { type: "placeBuilding", x, y, building: BUILDING.WaterPump };
+      case "police":
+        return { type: "placeBuilding", x, y, building: BUILDING.PoliceStation };
+      case "fire":
+        return { type: "placeBuilding", x, y, building: BUILDING.FireStation };
+      case "hospital":
+        return { type: "placeBuilding", x, y, building: BUILDING.Hospital };
+      case "park":
+        return { type: "placeBuilding", x, y, building: BUILDING.Park };
+      case "parkSmall":
+        return { type: "placeBuilding", x, y, building: BUILDING.ParkSmall };
+      case "plaza":
+        return { type: "placeBuilding", x, y, building: BUILDING.Plaza };
+      case "sportsField":
+        return { type: "placeBuilding", x, y, building: BUILDING.SportsField };
+      case "botanicalGarden":
+        return { type: "placeBuilding", x, y, building: BUILDING.BotanicalGarden };
       default:
         return null;
     }
