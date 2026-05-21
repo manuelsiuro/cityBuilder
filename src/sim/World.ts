@@ -3,7 +3,7 @@ import { CommandQueue } from "../engine/CommandQueue";
 import { EventBus } from "../engine/EventBus";
 import { CityData } from "./CityData";
 import { generateTerrain } from "./TerrainGen";
-import { MAP_WIDTH, MAP_HEIGHT } from "./layers";
+import { DEFAULT_MAP_SETTINGS, MAP_SIZES, type MapSettings } from "./MapSettings";
 import { formatDate, tickToDate, type SimDate } from "./Tick";
 import { applyCommand, type Command } from "./commands";
 import type { GameEventMap } from "./events";
@@ -49,12 +49,20 @@ export class World {
   private readonly budgetSystem: BudgetSystem;
   private _tickCount = 0;
   private _seed: number;
+  /** Map-generation parameters this world was built from. */
+  settings: MapSettings;
 
-  constructor(seed = 1) {
-    this._seed = seed;
-    this.random = new Random(seed);
-    this.city = new CityData(MAP_WIDTH, MAP_HEIGHT);
-    generateTerrain(this.city, this.random);
+  constructor(settings: MapSettings | number = DEFAULT_MAP_SETTINGS) {
+    // Accept a bare seed for convenience (tests, sandbox); otherwise full settings.
+    this.settings =
+      typeof settings === "number"
+        ? { ...DEFAULT_MAP_SETTINGS, seed: settings }
+        : settings;
+    this._seed = this.settings.seed;
+    this.random = new Random(this._seed);
+    const dim = MAP_SIZES[this.settings.size];
+    this.city = new CityData(dim, dim);
+    generateTerrain(this.city, this.random, this.settings);
     // The renderer builds terrain directly via `buildCity` — clear the flag so
     // the first tick doesn't fire a redundant `terrain:changed` rebuild.
     this.city.clearDirty(Dirty.Terrain);
@@ -140,6 +148,8 @@ export class World {
     const c = this.city;
     c.elevation.set(file.layers.elevation);
     c.terrainType.set(file.layers.terrainType);
+    c.biome.set(file.layers.biome);
+    c.trees.set(file.layers.trees);
     c.zone.set(file.layers.zone);
     c.buildingId.set(file.layers.buildingId);
     c.buildLevel.set(file.layers.buildLevel);
@@ -161,10 +171,11 @@ export class World {
 
   /** Discard the city and generate a fresh one from a new seed. */
   reset(seed: number): void {
+    this.settings = { ...this.settings, seed };
     this._seed = seed;
     this.random.state = seed >>> 0;
     this.city.reset();
-    generateTerrain(this.city, this.random);
+    generateTerrain(this.city, this.random, this.settings);
     this._tickCount = 0;
     this.refreshAfterBulkChange();
   }

@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import type { CityData } from "../sim/CityData";
-import { TerrainType } from "../sim/layers";
+import { Biome, TerrainType } from "../sim/layers";
 import { BASE_Y, ELEV_STEP, TILE, WATER_Y, tileCornerX, tileCornerZ } from "./constants";
 
 /**
@@ -45,31 +45,33 @@ function tileTopY(city: CityData, i: number): number {
   return city.terrainType[i] === TerrainType.Water ? WATER_Y : city.elevation[i] * ELEV_STEP;
 }
 
+/** Base ground colour per biome (water is coloured separately). */
+const BIOME_COLOR: Record<Biome, number> = {
+  [Biome.Ocean]: 0x4f7d3a,
+  [Biome.Beach]: 0xdcc88f,
+  [Biome.Plains]: 0x6f9c4a,
+  [Biome.Forest]: 0x3f6f37,
+  [Biome.Desert]: 0xc9a86a,
+  [Biome.Tundra]: 0x8a9477,
+  [Biome.Snow]: 0xe8edf0,
+  [Biome.Mountain]: 0x8b8784,
+};
+
 function tileColor(city: CityData, i: number, out: THREE.Color): void {
-  const type = city.terrainType[i];
-  if (type === TerrainType.Water) {
+  if (city.terrainType[i] === TerrainType.Water) {
     // Lighter shallows where water laps the shore, deeper blue offshore.
     out.setHex(touchesLand(city, i) ? 0x4791b5 : 0x2f6ea5);
-  } else if (type === TerrainType.Rock) {
-    out.setHex(0x8b8784);
   } else {
+    out.setHex(BIOME_COLOR[city.biome[i] as Biome]);
+    // Higher ground catches more light.
     const t = city.elevation[i] / 8;
-    out.setHex(0x4f7d3a).lerp(_lerpTarget.setHex(0x86ad5c), t);
-    // Sandy shoreline where grass meets water.
-    if (touchesWater(city, i)) {
-      out.lerp(_lerpTarget.setHex(0xcfc08a), 0.55);
-    }
+    out.lerp(_lerpTarget.setHex(0xffffff), t * 0.12);
   }
   // Subtle deterministic per-tile jitter breaks up the flat ground.
   const j = (terrainHash(city.grid.x(i), city.grid.y(i)) % 1000) / 1000;
   out.multiplyScalar(0.94 + j * 0.12);
 }
 const _lerpTarget = new THREE.Color();
-
-/** True if any 4-neighbour of tile `i` is water. */
-function touchesWater(city: CityData, i: number): boolean {
-  return hasNeighbor(city, i, true);
-}
 
 /** True if any 4-neighbour of tile `i` is land (non-water). */
 function touchesLand(city: CityData, i: number): boolean {

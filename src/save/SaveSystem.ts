@@ -24,6 +24,8 @@ export function serializeWorld(world: World, name = "City"): SaveFile {
     layers: {
       elevation: c.elevation.slice(),
       terrainType: c.terrainType.slice(),
+      biome: c.biome.slice(),
+      trees: c.trees.slice(),
       zone: c.zone.slice(),
       buildingId: c.buildingId.slice(),
       buildLevel: c.buildLevel.slice(),
@@ -61,5 +63,15 @@ export class SaveSystem {
 
   async hasSave(slot = 0): Promise<boolean> {
     return (await idbKeys()).includes(SLOT_PREFIX + slot);
+  }
+
+  /** Numbers of the slots that currently hold a saved city, ascending. */
+  async slots(): Promise<number[]> {
+    const keys = await idbKeys();
+    return keys
+      .filter((k): k is string => typeof k === "string" && k.startsWith(SLOT_PREFIX))
+      .map((k) => Number(k.slice(SLOT_PREFIX.length)))
+      .filter((n) => Number.isInteger(n))
+      .sort((a, b) => a - b);
   }
 }

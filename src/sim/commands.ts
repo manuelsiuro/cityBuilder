@@ -38,6 +38,7 @@ export function applyCommand(city: CityData, cmd: Command): void {
       if (isWater || city.road[i] || city.funds < COST.buildRoad) return;
       city.funds -= COST.buildRoad;
       city.road[i] = 1;
+      city.trees[i] = 0; // construction clears the tile's trees
       city.markDirty(Dirty.Road);
       break;
 
@@ -60,6 +61,7 @@ export function applyCommand(city: CityData, cmd: Command): void {
       if (city.zone[i] === cmd.zone || city.funds < COST.zone) return;
       city.funds -= COST.zone;
       city.zone[i] = cmd.zone;
+      city.trees[i] = 0; // zoning clears the tile's trees
       city.markDirty(Dirty.Zone | Dirty.Power | Dirty.Water | Dirty.LandValue);
       break;
 
@@ -71,13 +73,14 @@ export function applyCommand(city: CityData, cmd: Command): void {
       city.buildingId[i] = cmd.building;
       city.zone[i] = Zone.None;
       city.buildLevel[i] = 0;
+      city.trees[i] = 0; // construction clears the tile's trees
       city.markDirty(Dirty.Power | Dirty.Water | Dirty.Utility);
       break;
     }
 
     case "bulldoze":
       if (!city.road[i] && !city.powerLine[i] && !city.pipe[i] &&
-          !city.buildingId[i] && city.zone[i] === Zone.None) {
+          !city.buildingId[i] && city.zone[i] === Zone.None && !city.trees[i]) {
         return;
       }
       city.road[i] = 0;
@@ -86,6 +89,7 @@ export function applyCommand(city: CityData, cmd: Command): void {
       city.buildingId[i] = BUILDING.None;
       city.zone[i] = Zone.None;
       city.buildLevel[i] = 0;
+      city.trees[i] = 0; // bulldozing also clears forest
       city.markDirty(
         Dirty.Road | Dirty.Power | Dirty.Water | Dirty.Zone | Dirty.Utility | Dirty.LandValue,
       );

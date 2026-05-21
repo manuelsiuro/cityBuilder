@@ -57,4 +57,19 @@ describe("migrate", () => {
   it("rejects a save newer than this build", () => {
     expect(() => migrate({ version: CURRENT_VERSION + 1 })).toThrow();
   });
+
+  it("upgrades a v1 save to v2 with synthesized biome and tree layers", () => {
+    const file = serializeWorld(new World(1));
+    // Strip the v2-only layers to fabricate a v1 save.
+    const v1Layers: Record<string, unknown> = { ...file.layers };
+    delete v1Layers.biome;
+    delete v1Layers.trees;
+    const v1 = { ...file, version: 1, layers: v1Layers };
+
+    const migrated = migrate(v1);
+    expect(migrated.version).toBe(2);
+    expect(migrated.layers.biome).toBeInstanceOf(Uint8Array);
+    expect(migrated.layers.trees).toBeInstanceOf(Uint8Array);
+    expect(migrated.layers.biome.length).toBe(file.layers.elevation.length);
+  });
 });
