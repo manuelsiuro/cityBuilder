@@ -4,8 +4,8 @@ const W = 250;
 const H = 30;
 const GAP = 6;
 const MARGIN = 12;
-/** Below the debug HUD. */
-const TOP = 44;
+/** Below the debug HUD and the radio dock. */
+const TOP = 86;
 const LIFE_MS = 4200;
 const FADE_MS = 900;
 const MAX = 4;
