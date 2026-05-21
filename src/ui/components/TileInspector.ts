@@ -57,8 +57,9 @@ export class TileInspector {
     this.title.text = info.title;
     this.panelH = TITLE_H + PAD + info.rows.length * ROW_H + PAD;
 
-    // Grow the pooled row-text objects to match the row count.
-    while (this.rowText.length < info.rows.length) {
+    // Grow the pooled row-text objects to match the row count (a label and a
+    // value Text per row, so two pooled objects each).
+    while (this.rowText.length < info.rows.length * 2) {
       const label = new Text({
         text: "",
         style: {
