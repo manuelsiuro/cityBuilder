@@ -8,6 +8,7 @@ import { ToolController } from "../input/ToolController";
 import { UIApp } from "../ui/UIApp";
 import { SaveSystem } from "../save/SaveSystem";
 import { Sfx } from "../engine/Sfx";
+import { RadioService } from "../radio/RadioService";
 import { GameLoop } from "./GameLoop";
 import { StateMachine, type GameStateHandler } from "./AppState";
 import type { ServiceContext } from "./ServiceContext";
@@ -28,6 +29,7 @@ export class App {
   private readonly ui = new UIApp();
   private readonly save = new SaveSystem();
   private readonly sfx = new Sfx();
+  private readonly radio = new RadioService();
 
   private input?: Input;
   private picker?: Picker;
@@ -107,7 +109,7 @@ export class App {
         this.sfx.click();
       },
       onSystemAction: (action) => this.handleSystemAction(action),
-    });
+    }, this.radio);
     this.ctx.states.transitionTo(this.createPlayingState());
     this.ctx.loop.start();
   }
@@ -248,10 +250,14 @@ export class App {
 
     ev.on("release", () => {
       this.uiCaptured = false;
+      this.ui.handleRelease();
     });
 
     ev.on("drag", ({ dx, dy, x, y }) => {
-      if (this.uiCaptured) return;
+      if (this.uiCaptured) {
+        this.ui.handleDrag(x, y);
+        return;
+      }
       if (this.tools.isBuilding) {
         this.paintAt(x, y);
       } else {
@@ -384,6 +390,7 @@ export class App {
     window.removeEventListener("resize", this.onResize);
     window.removeEventListener("keydown", this.onKeyDown);
     this.input?.dispose();
+    this.radio.stop();
     this.ui.dispose();
     this.sandboxButton?.remove();
     this.ctx.renderer.dispose();

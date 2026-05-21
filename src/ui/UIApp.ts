@@ -6,6 +6,8 @@ import { BudgetBar } from "./components/BudgetBar";
 import { SystemBar, type SystemAction, type SystemIcons } from "./components/SystemBar";
 import { Minimap } from "./components/Minimap";
 import { Notifications } from "./components/Notifications";
+import { RadioPlayer } from "./components/RadioPlayer";
+import type { RadioService } from "../radio/RadioService";
 import type { Tool } from "../input/ToolController";
 import type { BudgetReport } from "../sim/systems/BudgetSystem";
 import type { CityData } from "../sim/CityData";
@@ -31,9 +33,15 @@ export class UIApp {
   private system?: SystemBar;
   private minimap?: Minimap;
   private notifications?: Notifications;
+  private radio?: RadioPlayer;
   private pauseBanner?: Text;
 
-  async init(mapW: number, mapH: number, cb: UICallbacks): Promise<void> {
+  async init(
+    mapW: number,
+    mapH: number,
+    cb: UICallbacks,
+    radio: RadioService,
+  ): Promise<void> {
     const app = new Application();
     await app.init({
       resizeTo: window,
@@ -59,6 +67,7 @@ export class UIApp {
     this.budget = new BudgetBar(await loadOptionalTexture("coin"));
     this.minimap = new Minimap(mapW, mapH);
     this.notifications = new Notifications();
+    this.radio = new RadioPlayer(radio);
     this.pauseBanner = new Text({
       text: "PAUSED",
       style: {
@@ -80,6 +89,7 @@ export class UIApp {
       this.rci.container,
       this.budget.container,
       this.notifications.container,
+      this.radio.container,
       this.pauseBanner,
     );
     this.layout();
@@ -90,14 +100,26 @@ export class UIApp {
   /** True if a press at `(x, y)` lands on a HUD widget (input should ignore it). */
   handlePress(x: number, y: number): boolean {
     return (
+      this.radio?.handlePress(x, y) === true ||
       this.palette?.hitTest(x, y) != null ||
       this.overlay?.hitTest(x, y) === true ||
       this.system?.hitTest(x, y) === true
     );
   }
 
+  /** Route a drag to the radio volume slider. Returns true if it consumed it. */
+  handleDrag(x: number, y: number): boolean {
+    return this.radio?.handleDrag(x, y) === true;
+  }
+
+  /** Notify widgets that the pointer was released (ends a slider drag). */
+  handleRelease(): void {
+    this.radio?.handleRelease();
+  }
+
   /** Activate the widget under a tap. Returns true if one was hit. */
   handleTap(x: number, y: number): boolean {
+    if (this.radio?.handleTap(x, y)) return true;
     const tool = this.palette?.hitTest(x, y);
     if (tool) {
       this.palette?.select(tool);
@@ -153,6 +175,7 @@ export class UIApp {
     this.budget?.layout(width);
     this.minimap?.layout(width, height);
     this.notifications?.layout();
+    this.radio?.layout();
     this.pauseBanner?.position.set(width / 2, height / 2 - 40);
   }
 
