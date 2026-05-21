@@ -4,7 +4,8 @@ import { SandboxGallery } from "../render/SandboxGallery";
 import { buildTrafficSandbox } from "./trafficSandbox";
 import { Picker } from "../render/Picker";
 import { Input } from "../input/Input";
-import { ToolController } from "../input/ToolController";
+import { ToolController, type Tool } from "../input/ToolController";
+import { COST } from "../sim/commands";
 import { UIApp } from "../ui/UIApp";
 import { SaveSystem } from "../save/SaveSystem";
 import { Sfx } from "../engine/Sfx";
@@ -249,6 +250,13 @@ export class App {
     });
 
     ev.on("release", () => {
+      if (!this.uiCaptured && this.tools.isBuilding) {
+        this.tools.commitStroke(this.ctx.world.city.grid);
+        if (this.tools.isRectTool()) {
+          renderer.clearRectHighlight();
+          this.ui.clearSelectionReadout();
+        }
+      }
       this.uiCaptured = false;
       this.ui.handleRelease();
     });
@@ -260,6 +268,7 @@ export class App {
       }
       if (this.tools.isBuilding) {
         this.paintAt(x, y);
+        if (this.tools.isRectTool()) this.updateRectPreview();
       } else {
         renderer.isoCamera.panByPixels(dx, dy);
       }
@@ -272,7 +281,10 @@ export class App {
       const tile = this.pickTile(x, y);
       this.hoverTile = tile;
       renderer.setHighlight(tile);
-      if (tile && this.tools.isBuilding) this.paintAt(x, y);
+      // Rect tools apply on press+release; a tap must not paint a second time.
+      if (tile && this.tools.isBuilding && !this.tools.isRectTool()) {
+        this.paintAt(x, y);
+      }
     });
 
     ev.on("hover", ({ x, y }) => {
@@ -323,6 +335,22 @@ export class App {
   private paintAt(clientX: number, clientY: number): void {
     const tile = this.pickTile(clientX, clientY);
     if (tile) this.tools.paint(tile.x, tile.y, this.ctx.world.city.grid);
+  }
+
+  /** Refresh the rectangle highlight and cost readout while a rect drag is live. */
+  private updateRectPreview(): void {
+    const { renderer, world } = this.ctx;
+    const rect = this.tools.pendingRect;
+    if (!rect) {
+      renderer.clearRectHighlight();
+      this.ui.clearSelectionReadout();
+      return;
+    }
+    const tiles = (rect.x1 - rect.x0 + 1) * (rect.y1 - rect.y0 + 1);
+    const unit = rectUnitCost(this.tools.activeTool);
+    const cost = unit === null ? null : unit * tiles;
+    renderer.setRectHighlight(rect, world.city);
+    this.ui.setSelectionReadout(tiles, cost, cost === null || cost <= world.city.funds);
   }
 
   private pickTile(clientX: number, clientY: number): { x: number; y: number } | null {
@@ -394,5 +422,21 @@ export class App {
     this.ui.dispose();
     this.sandboxButton?.remove();
     this.ctx.renderer.dispose();
+  }
+}
+
+/** Per-tile cost for a rect tool's readout, or null for tools that charge nothing. */
+function rectUnitCost(tool: Tool): number | null {
+  switch (tool) {
+    case "zoneR":
+    case "zoneC":
+    case "zoneI":
+      return COST.zone;
+    case "raiseTerrain":
+      return COST.raiseTerrain;
+    case "lowerTerrain":
+      return COST.lowerTerrain;
+    default:
+      return null;
   }
 }

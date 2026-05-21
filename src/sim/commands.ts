@@ -18,7 +18,7 @@ export type Command =
   | { type: "lowerTerrain"; x: number; y: number };
 
 /** Up-front construction cost per command. */
-const COST = {
+export const COST = {
   buildRoad: 8,
   buildPowerLine: 6,
   buildPipe: 7,
