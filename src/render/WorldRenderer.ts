@@ -11,13 +11,18 @@ import { UtilityRenderer } from "./UtilityRenderer";
 import { TreeRenderer } from "./TreeRenderer";
 import { TrafficLightRenderer } from "./TrafficLightRenderer";
 import { FireRenderer } from "./FireRenderer";
+import { ServiceVehicleRenderer } from "./ServiceVehicleRenderer";
+import { IncidentMarkerRenderer } from "./IncidentMarkerRenderer";
 import type { Car } from "../sim/systems/TrafficSystem";
+import type { ServiceVehicle } from "../sim/systems/DispatchSystem";
+import type { Incident } from "../sim/systems/IncidentSystem";
 import type { Intersection } from "../sim/systems/IntersectionSystem";
 import { TILE, tileCenterX, tileCenterZ, tileSurfaceY } from "./constants";
 import type { TileCoord, TileRect } from "./Picker";
 
 /** Coverage overlay mode — utilities and city-service reach. */
-export type OverlayMode = "off" | "power" | "water" | "police" | "fire";
+export type OverlayMode =
+  | "off" | "power" | "water" | "police" | "fire" | "health" | "crime";
 
 const ZONE_COLOR: Record<number, number> = {
   [Zone.Residential]: 0x49c46a,
@@ -59,12 +64,24 @@ const fireColor: TileColorFn = (city, i) => {
   return c > 0 ? lerpHex(0x7a3520, 0xffa256, c / 255) : null;
 };
 
+const healthColor: TileColorFn = (city, i) => {
+  const c = city.healthCoverage[i];
+  return c > 0 ? lerpHex(0x2f6a55, 0x6fe0b0, c / 255) : null;
+};
+
+const crimeColor: TileColorFn = (city, i) => {
+  const c = city.crime[i];
+  return c > 0 ? lerpHex(0x5a2740, 0xff5a7a, c / 255) : null;
+};
+
 /** Tile-colour function backing each non-"off" overlay mode. */
 const OVERLAY_COLORS: Record<Exclude<OverlayMode, "off">, TileColorFn> = {
   power: powerColor,
   water: waterColor,
   police: policeColor,
   fire: fireColor,
+  health: healthColor,
+  crime: crimeColor,
 };
 
 /**
@@ -85,6 +102,8 @@ export class WorldRenderer {
   private utilities?: UtilityRenderer;
   private trees?: TreeRenderer;
   private fire?: FireRenderer;
+  private serviceVehicles?: ServiceVehicleRenderer;
+  private incidentMarkers?: IncidentMarkerRenderer;
   private zoneOverlay?: TileOverlay;
   private networkOverlay?: TileOverlay;
   private rectHighlight?: TileOverlay;
@@ -136,6 +155,8 @@ export class WorldRenderer {
     this.utilities = new UtilityRenderer(city);
     this.trees = new TreeRenderer(city);
     this.fire = new FireRenderer(city.grid.size);
+    this.serviceVehicles = new ServiceVehicleRenderer(24);
+    this.incidentMarkers = new IncidentMarkerRenderer(64);
     this.zoneOverlay = new TileOverlay(city.grid.size, 0.05, 0.5);
     this.networkOverlay = new TileOverlay(city.grid.size, 0.14, 0.6);
     this.networkOverlay.visible = false;
@@ -151,6 +172,8 @@ export class WorldRenderer {
       this.utilities.group,
       this.trees.group,
       this.fire.group,
+      this.serviceVehicles.group,
+      this.incidentMarkers.group,
       this.zoneOverlay.mesh,
       this.networkOverlay.mesh,
       this.rectHighlight.mesh,
@@ -233,6 +256,20 @@ export class WorldRenderer {
     this.fire?.update(city, performance.now());
   }
 
+  /** Interpolate and re-place emergency-vehicle instances. Call every frame. */
+  updateServiceVehicles(
+    vehicles: readonly ServiceVehicle[],
+    city: CityData,
+    alpha: number,
+  ): void {
+    this.serviceVehicles?.sync(vehicles, city, alpha);
+  }
+
+  /** Re-place incident beacons from the live incident list. Call every frame. */
+  updateIncidents(incidents: readonly Incident[], city: CityData): void {
+    this.incidentMarkers?.sync(incidents, city, performance.now());
+  }
+
   /** Refresh the coverage overlay if it is currently showing the given layer. */
   refreshOverlay(city: CityData, layer: Exclude<OverlayMode, "off">): void {
     if (this.overlayMode === layer) this.applyOverlay(city);
@@ -313,6 +350,8 @@ export class WorldRenderer {
     this.utilities?.dispose();
     this.trees?.dispose();
     this.fire?.dispose();
+    this.serviceVehicles?.dispose();
+    this.incidentMarkers?.dispose();
     this.zoneOverlay?.dispose();
     this.networkOverlay?.dispose();
     this.rectHighlight?.dispose();

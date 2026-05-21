@@ -21,6 +21,7 @@ export class CoverageSystem {
     city.policeCoverage.fill(0);
     city.fireCoverage.fill(0);
     city.parkCoverage.fill(0);
+    city.healthCoverage.fill(0);
 
     const { grid } = city;
     for (let i = 0; i < grid.size; i++) {
@@ -77,6 +78,8 @@ export class CoverageSystem {
         return city.fireCoverage;
       case "park":
         return city.parkCoverage;
+      case "health":
+        return city.healthCoverage;
       default:
         return null;
     }

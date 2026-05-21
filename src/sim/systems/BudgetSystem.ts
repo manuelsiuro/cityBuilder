@@ -20,7 +20,12 @@ const UPKEEP = {
   waterPump: 30,
   policeStation: 60,
   fireStation: 60,
+  hospital: 80,
   park: 10,
+  parkSmall: 5,
+  plaza: 15,
+  sportsField: 20,
+  botanicalGarden: 35,
 } as const;
 
 /**
@@ -49,7 +54,12 @@ export class BudgetSystem {
       else if (city.buildingId[i] === BUILDING.WaterPump) maintenance += UPKEEP.waterPump;
       else if (city.buildingId[i] === BUILDING.PoliceStation) maintenance += UPKEEP.policeStation;
       else if (city.buildingId[i] === BUILDING.FireStation) maintenance += UPKEEP.fireStation;
+      else if (city.buildingId[i] === BUILDING.Hospital) maintenance += UPKEEP.hospital;
       else if (city.buildingId[i] === BUILDING.Park) maintenance += UPKEEP.park;
+      else if (city.buildingId[i] === BUILDING.ParkSmall) maintenance += UPKEEP.parkSmall;
+      else if (city.buildingId[i] === BUILDING.Plaza) maintenance += UPKEEP.plaza;
+      else if (city.buildingId[i] === BUILDING.SportsField) maintenance += UPKEEP.sportsField;
+      else if (city.buildingId[i] === BUILDING.BotanicalGarden) maintenance += UPKEEP.botanicalGarden;
     }
 
     const net = income - maintenance;

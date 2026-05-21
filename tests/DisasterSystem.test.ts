@@ -93,6 +93,20 @@ describe("DisasterSystem", () => {
 
     for (let t = 0; t < 4000; t++) sys.update(city, t);
     expect(notices.length).toBeGreaterThan(0);
-    expect(notices[0]).toEqual({ level: "warn", message: "A fire has broken out!" });
+    expect(notices[0].level).toBe("warn");
+  });
+
+  it("an earthquake damages buildings across its disc", () => {
+    const city = builtCity(24);
+    const before = city.buildLevel.reduce((s, v) => s + v, 0);
+
+    const sys = disaster();
+    let destroyed = false;
+    // The epicentre is random — a few strikes guarantee a hit on the grid.
+    for (let k = 0; k < 8 && !destroyed; k++) destroyed = sys.triggerEarthquake(city);
+
+    expect(destroyed).toBe(true);
+    const after = city.buildLevel.reduce((s, v) => s + v, 0);
+    expect(after).toBeLessThan(before);
   });
 });

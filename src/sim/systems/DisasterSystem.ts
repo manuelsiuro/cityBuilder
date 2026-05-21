@@ -26,6 +26,18 @@ const DESTROY_THRESHOLD = 165;
 const DESTROY_CHANCE = 0.05;
 /** Minimum ticks between "fire broke out" toasts. */
 const NOTICE_COOLDOWN = 60;
+/** Chance an igniting industrial tile erupts into an explosion instead. */
+const EXPLOSION_CHANCE = 0.18;
+/** Intensity an industrial explosion starts at — far past a normal ignition. */
+const EXPLOSION_INTENSITY = 175;
+/** Per-tick chance an earthquake strikes the city. Deliberately very rare. */
+const EARTHQUAKE_CHANCE = 0.000004;
+/** Radius of an earthquake's damage disc, in tiles. */
+const QUAKE_RADIUS = 5;
+/** Peak chance per tile that the quake knocks a building down a level. */
+const QUAKE_DAMAGE_CHANCE = 0.55;
+/** Peak chance per tile that the quake sparks a fire. */
+const QUAKE_FIRE_CHANCE = 0.16;
 
 /**
  * Random fire incidents. Each tick a flammable tile may spontaneously ignite
@@ -51,6 +63,11 @@ export class DisasterSystem {
   update(city: CityData, tick: number): void {
     const { grid } = city;
     let destroyed = false;
+
+    // 0. A rare earthquake — a sudden disc of structural damage and fire.
+    if (this.random.chance(EARTHQUAKE_CHANCE)) {
+      if (this.triggerEarthquake(city)) destroyed = true;
+    }
 
     // 1. Burn, spread and damage. The burning set is snapshotted so a fire
     //    spread this tick does not cascade again within the same tick.
@@ -85,8 +102,18 @@ export class DisasterSystem {
       if (city.zone[i] === Zone.Industrial) risk *= INDUSTRIAL_RISK_MULT;
       risk *= 1 - city.fireCoverage[i] / 255;
       if (this.random.chance(risk)) {
-        city.fire[i] = IGNITE_INTENSITY;
-        this.notifyFire(tick);
+        // An industrial ignition can erupt — a fierce blaze that flings fire
+        // straight to its neighbours.
+        if (city.zone[i] === Zone.Industrial && this.random.chance(EXPLOSION_CHANCE)) {
+          city.fire[i] = EXPLOSION_INTENSITY;
+          grid.forEachNeighbor4(grid.x(i), grid.y(i), (_x, _y, ni) => {
+            if (city.fire[ni] === 0 && hasFuel(city, ni)) city.fire[ni] = IGNITE_INTENSITY;
+          });
+          this.notify(tick, "An industrial explosion has erupted!");
+        } else {
+          city.fire[i] = IGNITE_INTENSITY;
+          this.notify(tick, "A fire has broken out!");
+        }
       }
     }
 
@@ -100,10 +127,43 @@ export class DisasterSystem {
     }
   }
 
-  private notifyFire(tick: number): void {
+  /**
+   * Strike the city with an earthquake: pick an epicentre, then damage
+   * buildings and spark fires across a disc that falls off with distance.
+   * Returns true if any building was knocked down. Public so tests — and a
+   * future "trigger disaster" cheat — can invoke it directly.
+   */
+  triggerEarthquake(city: CityData): boolean {
+    const { grid } = city;
+    const cx = this.random.int(grid.width);
+    const cy = this.random.int(grid.height);
+    let destroyed = false;
+    for (let dy = -QUAKE_RADIUS; dy <= QUAKE_RADIUS; dy++) {
+      for (let dx = -QUAKE_RADIUS; dx <= QUAKE_RADIUS; dx++) {
+        const x = cx + dx;
+        const y = cy + dy;
+        if (!grid.inBounds(x, y)) continue;
+        const dist = Math.hypot(dx, dy);
+        if (dist > QUAKE_RADIUS) continue;
+        const falloff = 1 - dist / (QUAKE_RADIUS + 1);
+        const i = grid.index(x, y);
+        if (this.random.chance(QUAKE_DAMAGE_CHANCE * falloff)) {
+          if (damage(city, i)) destroyed = true;
+        }
+        if (city.fire[i] === 0 && hasFuel(city, i) &&
+          this.random.chance(QUAKE_FIRE_CHANCE * falloff)) {
+          city.fire[i] = IGNITE_INTENSITY;
+        }
+      }
+    }
+    this.events.emit("notice", { level: "warn", message: "An earthquake has struck the city!" });
+    return destroyed;
+  }
+
+  private notify(tick: number, message: string): void {
     if (tick - this.lastNotice < NOTICE_COOLDOWN) return;
     this.lastNotice = tick;
-    this.events.emit("notice", { level: "warn", message: "A fire has broken out!" });
+    this.events.emit("notice", { level: "warn", message });
   }
 }
 

@@ -179,6 +179,20 @@ describe("applyCommand", () => {
     expect(city.isDirty(Dirty.Coverage)).toBe(true);
   });
 
+  it("places park variants and the hospital, charging each building's cost", () => {
+    const city = new CityData(12, 12);
+    const before = city.funds;
+    applyCommand(city, { type: "placeBuilding", x: 1, y: 1, building: BUILDING.ParkSmall });
+    applyCommand(city, { type: "placeBuilding", x: 3, y: 3, building: BUILDING.Plaza });
+    applyCommand(city, { type: "placeBuilding", x: 5, y: 5, building: BUILDING.SportsField });
+    applyCommand(city, { type: "placeBuilding", x: 7, y: 7, building: BUILDING.BotanicalGarden });
+    applyCommand(city, { type: "placeBuilding", x: 9, y: 9, building: BUILDING.Hospital });
+    expect(city.buildingId[city.grid.index(1, 1)]).toBe(BUILDING.ParkSmall);
+    expect(city.buildingId[city.grid.index(9, 9)]).toBe(BUILDING.Hospital);
+    expect(city.funds).toBe(before - 80 - 200 - 300 - 500 - 1200);
+    expect(city.isDirty(Dirty.Coverage)).toBe(true);
+  });
+
   it("refuses a service building the player cannot afford", () => {
     const city = new CityData(8, 8);
     city.funds = 100;

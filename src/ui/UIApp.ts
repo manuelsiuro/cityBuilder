@@ -270,7 +270,8 @@ const ICON_TOOLS: Tool[] = [
   "inspect", "road", "bulldoze", "raiseTerrain", "lowerTerrain",
   "zoneR", "zoneC", "zoneI",
   "powerLine", "powerPlant", "pipe", "waterPump",
-  "police", "fire", "park",
+  "police", "fire", "hospital",
+  "parkSmall", "park", "plaza", "sportsField", "botanicalGarden",
 ];
 
 /** Load the generated tool glyphs; a missing icon falls back to text only. */

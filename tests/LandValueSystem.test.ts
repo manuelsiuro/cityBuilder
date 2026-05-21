@@ -23,4 +23,30 @@ describe("LandValueSystem", () => {
     expect(near).toBeLessThan(far);
     expect(city.pollution[city.grid.index(13, 12)]).toBeGreaterThan(0);
   });
+
+  it("raises land value where hospital health coverage reaches", () => {
+    const i = (c: CityData) => c.grid.index(12, 12);
+    const bare = new CityData(24, 24);
+    new LandValueSystem().update(bare);
+    const baseline = bare.landValue[i(bare)];
+
+    const covered = new CityData(24, 24);
+    covered.healthCoverage[i(covered)] = 200;
+    new LandValueSystem().update(covered);
+
+    expect(covered.landValue[i(covered)]).toBeGreaterThan(baseline);
+  });
+
+  it("lowers land value where active crime is present", () => {
+    const i = (c: CityData) => c.grid.index(12, 12);
+    const bare = new CityData(24, 24);
+    new LandValueSystem().update(bare);
+    const baseline = bare.landValue[i(bare)];
+
+    const unsafe = new CityData(24, 24);
+    unsafe.crime[i(unsafe)] = 180;
+    new LandValueSystem().update(unsafe);
+
+    expect(unsafe.landValue[i(unsafe)]).toBeLessThan(baseline);
+  });
 });

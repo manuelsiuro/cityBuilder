@@ -18,6 +18,10 @@ const CONGESTION_DIVISOR = 4;
 const POLICE_DIVISOR = 9;
 /** Park-coverage units that add one point of land value (amenity premium). */
 const PARK_DIVISOR = 7;
+/** Health-coverage units that add one point of land value (care premium). */
+const HEALTH_DIVISOR = 10;
+/** Active-crime units that cost one point of land value. */
+const CRIME_DIVISOR = 5;
 
 /**
  * Computes per-tile land value: a base value, plus a scenic bonus near water,
@@ -50,10 +54,12 @@ export class LandValueSystem {
       const biomeMod = BIOME_LAND_VALUE_MOD[city.biome[i] as Biome];
       const services =
         Math.floor(city.policeCoverage[i] / POLICE_DIVISOR) +
-        Math.floor(city.parkCoverage[i] / PARK_DIVISOR);
+        Math.floor(city.parkCoverage[i] / PARK_DIVISOR) +
+        Math.floor(city.healthCoverage[i] / HEALTH_DIVISOR);
+      const crime = Math.floor(city.crime[i] / CRIME_DIVISOR);
       const v =
         BASE_VALUE + this.waterBonus[i] + biomeMod + services -
-        city.pollution[i] - congestion;
+        city.pollution[i] - congestion - crime;
       city.landValue[i] = Math.max(0, Math.min(255, v));
     }
   }

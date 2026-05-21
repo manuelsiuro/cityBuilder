@@ -51,8 +51,18 @@ const TOOLS: ToolDef[] = [
     desc: "Police station — $800 · raises safety & land value" },
   { tool: "fire", label: "Fire", group: 4, accent: 0xe06a4a, key: "KeyN", keyLabel: "N",
     desc: "Fire station — $800 · protects against fires" },
-  { tool: "park", label: "Park", group: 4, accent: 0x5fb05a, key: "KeyU", keyLabel: "U",
+  { tool: "hospital", label: "Hospital", group: 4, accent: 0xe2e2e2, key: "KeyH", keyLabel: "H",
+    desc: "Hospital — $1200 · health care, sends ambulances" },
+  { tool: "parkSmall", label: "Sm Park", group: 5, accent: 0x6fc24a, key: "KeyJ", keyLabel: "J",
+    desc: "Small park — $80 · cheap greenery, 3-tile reach" },
+  { tool: "park", label: "Park", group: 5, accent: 0x5fb05a, key: "KeyU", keyLabel: "U",
     desc: "Park — $150 · lifts nearby land value" },
+  { tool: "plaza", label: "Plaza", group: 5, accent: 0xc7b58a, key: "KeyY", keyLabel: "Y",
+    desc: "Plaza — $200 · paved square, suits dense cores" },
+  { tool: "sportsField", label: "Sports", group: 5, accent: 0x4faa3a, key: "KeyX", keyLabel: "X",
+    desc: "Sports field — $300 · wide 5-tile recreation reach" },
+  { tool: "botanicalGarden", label: "Garden", group: 5, accent: 0x3f9a3c, key: "KeyZ", keyLabel: "Z",
+    desc: "Botanical garden — $500 · large 6-tile amenity boost" },
 ];
 
 /** Map a `KeyboardEvent.code` to the tool it selects, or null. */

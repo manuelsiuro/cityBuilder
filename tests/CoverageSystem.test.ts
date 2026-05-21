@@ -45,6 +45,26 @@ describe("CoverageSystem", () => {
 
     const park = runWith(BUILDING.Park, 12, 12);
     expect(park.parkCoverage[park.grid.index(12, 12)]).toBeGreaterThan(0);
+
+    const hospital = runWith(BUILDING.Hospital, 12, 12);
+    expect(hospital.healthCoverage[hospital.grid.index(12, 12)]).toBeGreaterThan(0);
+    expect(hospital.policeCoverage[hospital.grid.index(12, 12)]).toBe(0);
+  });
+
+  it("routes every park variant to the park coverage layer", () => {
+    for (const id of [
+      BUILDING.ParkSmall,
+      BUILDING.Plaza,
+      BUILDING.SportsField,
+      BUILDING.BotanicalGarden,
+    ]) {
+      const city = runWith(id, 12, 12);
+      const range = buildingDef(id).serviceRange;
+      expect(city.parkCoverage[city.grid.index(12, 12)]).toBeGreaterThan(0);
+      // Coverage reaches just within range and is gone past it.
+      expect(city.parkCoverage[city.grid.index(12 + range - 1, 12)]).toBeGreaterThan(0);
+      expect(city.parkCoverage[city.grid.index(12 + range + 1, 12)]).toBe(0);
+    }
   });
 
   it("overlapping stations combine by taking the strongest value", () => {

@@ -186,6 +186,7 @@ export class App {
     ev.on("coverage:changed", () => {
       renderer.refreshOverlay(world.city, "police");
       renderer.refreshOverlay(world.city, "fire");
+      renderer.refreshOverlay(world.city, "health");
     });
   }
 
@@ -208,6 +209,8 @@ export class App {
         this.ui.setPaused(this.ctx.loop.speedMultiplier === 0);
         this.ui.updateMinimap(world.city, dtMs);
         renderer.updateCars(world.cars, world.city, alpha);
+        renderer.updateServiceVehicles(world.serviceVehicles, world.city, alpha);
+        renderer.updateIncidents(world.incidents, world.city);
         renderer.updateTrafficLights(world.tickCount);
         renderer.updateFire(world.city);
         renderer.update(dtMs);
@@ -514,6 +517,7 @@ export class App {
         accent: c.pollution[i] > 80 ? no : undefined },
       { label: "Police", value: coverageLabel(c.policeCoverage[i]) },
       { label: "Fire cover", value: coverageLabel(c.fireCoverage[i]) },
+      { label: "Health", value: coverageLabel(c.healthCoverage[i]) },
     );
     this.ui.showTileInfo({ title: `Tile ${tile.x}, ${tile.y}`, rows });
   }

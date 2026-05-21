@@ -17,6 +17,8 @@ import { PowerSystem } from "./systems/PowerSystem";
 import { WaterSystem } from "./systems/WaterSystem";
 import { CoverageSystem } from "./systems/CoverageSystem";
 import { DisasterSystem } from "./systems/DisasterSystem";
+import { IncidentSystem, type Incident } from "./systems/IncidentSystem";
+import { DispatchSystem, type ServiceVehicle } from "./systems/DispatchSystem";
 import { LandValueSystem } from "./systems/LandValueSystem";
 import { PopulationSystem } from "./systems/PopulationSystem";
 import { RCISystem } from "./systems/RCISystem";
@@ -45,6 +47,8 @@ export class World {
   private readonly waterSystem: WaterSystem;
   private readonly coverageSystem: CoverageSystem;
   private readonly disasterSystem: DisasterSystem;
+  private readonly incidentSystem: IncidentSystem;
+  private readonly dispatchSystem = new DispatchSystem();
   private readonly landValueSystem = new LandValueSystem();
   private readonly populationSystem = new PopulationSystem();
   private readonly rciSystem = new RCISystem();
@@ -78,6 +82,7 @@ export class World {
     this.waterSystem = new WaterSystem(this.events);
     this.coverageSystem = new CoverageSystem(this.events);
     this.disasterSystem = new DisasterSystem(this.random, this.events);
+    this.incidentSystem = new IncidentSystem(this.random, this.events);
     this.developmentSystem = new DevelopmentSystem(this.random, this.events);
     this.trafficSystem = new TrafficSystem(
       this.roadGraph,
@@ -96,6 +101,16 @@ export class World {
   /** Road junctions — read by the renderer to place and drive traffic lights. */
   get intersections(): readonly Intersection[] {
     return this.intersectionSystem.list;
+  }
+
+  /** Live crime / medical incidents — read by the renderer and dispatch. */
+  get incidents(): readonly Incident[] {
+    return this.incidentSystem.incidents;
+  }
+
+  /** Live emergency vehicles — read by the renderer. */
+  get serviceVehicles(): readonly ServiceVehicle[] {
+    return this.dispatchSystem.vehicles;
   }
 
   /** Sandbox hook: force a fixed car-fleet size regardless of population. */
@@ -140,6 +155,8 @@ export class World {
     this.waterSystem.update(this.city);
     this.coverageSystem.update(this.city);
     this.disasterSystem.update(this.city, this._tickCount);
+    this.incidentSystem.update(this.city, this._tickCount);
+    this.dispatchSystem.update(this.city, this.incidentSystem.incidents);
     this.trafficSystem.update(this.city, this._tickCount);
 
     // Slow systems run once per in-game day — too costly and too twitchy
@@ -192,7 +209,10 @@ export class World {
     this.random.state = file.rngState;
     this.noticeAt.clear();
     c.fire.fill(0); // fires are transient — a loaded city starts unburnt
+    c.crime.fill(0); // incidents are transient too
     this.disasterSystem.clear();
+    this.incidentSystem.clear();
+    this.dispatchSystem.clear();
 
     this.refreshAfterBulkChange();
   }
@@ -207,6 +227,8 @@ export class World {
     this._tickCount = 0;
     this.noticeAt.clear();
     this.disasterSystem.clear();
+    this.incidentSystem.clear();
+    this.dispatchSystem.clear();
     this.refreshAfterBulkChange();
   }
 
