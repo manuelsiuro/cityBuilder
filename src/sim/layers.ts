@@ -3,10 +3,6 @@
  * the *simulation* data — purely numeric, renderer-agnostic.
  */
 
-/** Map dimensions, in tiles. 128×128 matches the classic SimCity 2000 map. */
-export const MAP_WIDTH = 128;
-export const MAP_HEIGHT = 128;
-
 /** Elevation tiers a land tile can occupy (0 = sea level). */
 export const MAX_ELEVATION = 8;
 
@@ -14,6 +10,23 @@ export enum TerrainType {
   Grass = 0,
   Water = 1,
   Rock = 2,
+}
+
+/**
+ * Climate biome of a land tile — orthogonal to `TerrainType`. Driven by the
+ * generator's temperature/moisture maps; affects tile colour, tree placement,
+ * land value, growth, and pollution. Water tiles are always `Ocean`.
+ */
+export enum Biome {
+  /** Default for an unclassified tile — a benign, buildable land biome. */
+  Plains = 0,
+  Ocean = 1,
+  Beach = 2,
+  Forest = 3,
+  Desert = 4,
+  Tundra = 5,
+  Snow = 6,
+  Mountain = 7,
 }
 
 export enum Zone {

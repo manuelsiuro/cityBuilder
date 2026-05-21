@@ -1,5 +1,6 @@
 import type { CityData } from "../CityData";
-import { TerrainType, Zone } from "../layers";
+import { Biome, TerrainType, Zone } from "../layers";
+import { BIOME_LAND_VALUE_MOD, BIOME_POLLUTION_MOD } from "../BiomeMap";
 
 const BASE_VALUE = 90;
 const WATER_BONUS = 42;
@@ -34,7 +35,8 @@ export class LandValueSystem {
     for (let i = 0; i < grid.size; i++) {
       // Heavy traffic depresses desirability.
       const congestion = Math.floor(city.trafficLoad[i] / 4);
-      const v = BASE_VALUE + this.waterBonus[i] - city.pollution[i] - congestion;
+      const biomeMod = BIOME_LAND_VALUE_MOD[city.biome[i] as Biome];
+      const v = BASE_VALUE + this.waterBonus[i] + biomeMod - city.pollution[i] - congestion;
       city.landValue[i] = Math.max(0, Math.min(255, v));
     }
   }
@@ -49,11 +51,12 @@ export class LandValueSystem {
         if (!grid.inBounds(x, y)) continue;
         const dist = Math.hypot(dx, dy);
         if (dist > POLLUTION_RANGE) continue;
-        const amount = strength * (1 - dist / POLLUTION_RANGE);
-        city.pollution[grid.index(x, y)] = Math.min(
-          255,
-          city.pollution[grid.index(x, y)] + amount,
-        );
+        const idx = grid.index(x, y);
+        const amount =
+          strength *
+          (1 - dist / POLLUTION_RANGE) *
+          BIOME_POLLUTION_MOD[city.biome[idx] as Biome];
+        city.pollution[idx] = Math.min(255, city.pollution[idx] + amount);
       }
     }
   }

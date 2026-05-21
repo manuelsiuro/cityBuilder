@@ -17,6 +17,10 @@ export class CityData {
   readonly elevation: Uint8Array;
   /** `TerrainType` value. */
   readonly terrainType: Uint8Array;
+  /** `Biome` value — climate classification of a land tile. */
+  readonly biome: Uint8Array;
+  /** Tree density on the tile, 0 = none, 1..255 = forested. */
+  readonly trees: Uint8Array;
   /** `Zone` value. */
   readonly zone: Uint8Array;
   /** Building archetype id; 0 = empty. */
@@ -66,6 +70,8 @@ export class CityData {
 
     this.elevation = new Uint8Array(n);
     this.terrainType = new Uint8Array(n);
+    this.biome = new Uint8Array(n);
+    this.trees = new Uint8Array(n);
     this.zone = new Uint8Array(n);
     this.buildingId = new Uint16Array(n);
     this.buildLevel = new Uint8Array(n);
@@ -84,7 +90,7 @@ export class CityData {
   /** Zero every layer and reset aggregates — used when starting a new city. */
   reset(): void {
     for (const layer of [
-      this.elevation, this.terrainType, this.zone, this.buildingId,
+      this.elevation, this.terrainType, this.biome, this.trees, this.zone, this.buildingId,
       this.buildLevel, this.buildAge, this.road, this.powerLine, this.pipe,
       this.powered, this.watered, this.landValue, this.pollution, this.trafficLoad,
     ]) {

@@ -1,4 +1,10 @@
 import { World } from "../sim/World";
+import {
+  DEFAULT_MAP_SETTINGS,
+  MAP_SIZES,
+  type MapSettings,
+  type MapSizeId,
+} from "../sim/MapSettings";
 import { WorldRenderer } from "../render/WorldRenderer";
 import { SandboxGallery } from "../render/SandboxGallery";
 import { buildTrafficSandbox } from "./trafficSandbox";
@@ -26,7 +32,8 @@ const KEY_PAN_SPEED = 780;
 export class App {
   private readonly ctx: ServiceContext;
   private readonly hud: HTMLElement | null;
-  private readonly tools: ToolController;
+  /** Rebuilt whenever the active world is replaced (new game / load). */
+  private tools: ToolController;
   private readonly ui = new UIApp();
   private readonly save = new SaveSystem();
   private readonly sfx = new Sfx();
@@ -81,9 +88,80 @@ export class App {
       this.startSandbox();
       return;
     }
-    const { world, renderer } = this.ctx;
-    renderer.buildCity(world.city);
+    const { renderer } = this.ctx;
+    await this.ui.init({
+      onSelectTool: (tool) => {
+        this.tools.activeTool = tool;
+        this.sfx.click();
+      },
+      onOverlayChange: (mode) => {
+        renderer.setOverlayMode(mode, this.ctx.world.city);
+        this.sfx.click();
+      },
+      onSystemAction: (action) => this.handleSystemAction(action),
+      onNewCity: (settings) => this.beginGame(settings),
+      onLoadCity: (slot) => this.loadGame(slot),
+      listSlots: () => this.save.slots(),
+    }, this.radio);
+    this.ctx.states.transitionTo(this.createMainMenuState());
+    this.ctx.loop.start();
+  }
 
+  /** Idle state shown at boot: the menu drives input; the world just renders. */
+  private createMainMenuState(): GameStateHandler {
+    const { renderer } = this.ctx;
+    return {
+      name: "mainMenu",
+      onRenderFrame: () => renderer.render(),
+    };
+  }
+
+  /** Start a brand-new city from the chosen map settings. */
+  private beginGame(settings: MapSettings): void {
+    this.enterPlaying(new World(settings));
+    this.ui.notify("New city founded");
+    this.sfx.confirm();
+  }
+
+  /** Load a saved city from `slot` into a correctly-sized world, then play. */
+  private loadGame(slot: number): void {
+    this.save
+      .load(slot)
+      .then((file) => {
+        if (!file) {
+          this.ui.notify("That save slot is empty");
+          return;
+        }
+        const world = new World({
+          ...DEFAULT_MAP_SETTINGS,
+          seed: file.seed,
+          size: sizeForWidth(file.width),
+        });
+        world.restore(file);
+        this.enterPlaying(world);
+        this.ui.notify("City loaded");
+        this.sfx.confirm();
+      })
+      .catch(() => this.ui.notify("Load failed"));
+  }
+
+  /** Swap in `world`, build its scene, wire events, and enter the playing state. */
+  private enterPlaying(world: World): void {
+    const { renderer } = this.ctx;
+    this.ctx.world = world;
+    this.tools = new ToolController(world.commands);
+    if (import.meta.env.DEV) {
+      (globalThis as unknown as { world: World }).world = world;
+    }
+    renderer.buildCity(world.city);
+    this.wireWorldEvents(world);
+    this.ui.onGameStart(world.city.grid.width, world.city.grid.height);
+    this.ctx.states.transitionTo(this.createPlayingState());
+  }
+
+  /** Wire the simulation's events to renderer rebuilds and HUD updates. */
+  private wireWorldEvents(world: World): void {
+    const { renderer } = this.ctx;
     const ev = world.events;
     ev.on("roads:changed", () => renderer.rebuildRoads(world.city));
     ev.on("intersections:changed", () =>
@@ -99,20 +177,6 @@ export class App {
       this.ui.setBudget(report);
       if (report.net < 0) this.ui.notify(`Monthly deficit: −$${Math.abs(report.net)}`);
     });
-
-    await this.ui.init(world.city.grid.width, world.city.grid.height, {
-      onSelectTool: (tool) => {
-        this.tools.activeTool = tool;
-        this.sfx.click();
-      },
-      onOverlayChange: (mode) => {
-        renderer.setOverlayMode(mode, world.city);
-        this.sfx.click();
-      },
-      onSystemAction: (action) => this.handleSystemAction(action),
-    }, this.radio);
-    this.ctx.states.transitionTo(this.createPlayingState());
-    this.ctx.loop.start();
   }
 
   private createPlayingState(): GameStateHandler {
@@ -324,6 +388,12 @@ export class App {
           this.ui.notify("No saved city found");
           return;
         }
+        // A save with a different map size needs a fresh, resized world —
+        // restoring in place would mismatch the typed-array layers.
+        if (file.width !== world.city.grid.width) {
+          this.ui.notify("Different map size — load it from the main menu");
+          return;
+        }
         world.restore(file);
         renderer.rebuildAll(world.city);
         this.ui.notify("City loaded");
@@ -423,6 +493,14 @@ export class App {
     this.sandboxButton?.remove();
     this.ctx.renderer.dispose();
   }
+}
+
+/** Map a saved map width back to its `MapSizeId` (defaults to medium). */
+function sizeForWidth(width: number): MapSizeId {
+  for (const id of Object.keys(MAP_SIZES) as MapSizeId[]) {
+    if (MAP_SIZES[id] === width) return id;
+  }
+  return "medium";
 }
 
 /** Per-tile cost for a rect tool's readout, or null for tools that charge nothing. */

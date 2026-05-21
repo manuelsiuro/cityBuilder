@@ -1,5 +1,6 @@
-import { Application, Assets, Text, type Texture } from "pixi.js";
+import { Application, Assets, Container, Text, type Texture } from "pixi.js";
 import { ToolPalette, type ToolIcons } from "./components/ToolPalette";
+import { MainMenu } from "./components/MainMenu";
 import { OverlayButton, type OverlayChoice } from "./components/OverlayButton";
 import { RciWidget } from "./components/RciWidget";
 import { BudgetBar } from "./components/BudgetBar";
@@ -12,11 +13,18 @@ import type { RadioService } from "../radio/RadioService";
 import type { Tool } from "../input/ToolController";
 import type { BudgetReport } from "../sim/systems/BudgetSystem";
 import type { CityData } from "../sim/CityData";
+import type { MapSettings } from "../sim/MapSettings";
 
 export interface UICallbacks {
   onSelectTool: (tool: Tool) => void;
   onOverlayChange: (mode: OverlayChoice) => void;
   onSystemAction: (action: SystemAction) => void;
+  /** New City requested from the main menu, with chosen map settings. */
+  onNewCity: (settings: MapSettings) => void;
+  /** Load City requested from the main menu, for the given save slot. */
+  onLoadCity: (slot: number) => void;
+  /** List the save slots that currently hold a city. */
+  listSlots: () => Promise<number[]>;
 }
 
 /**
@@ -27,6 +35,8 @@ export interface UICallbacks {
  */
 export class UIApp {
   private app?: Application;
+  /** Holds every in-game HUD widget; hidden while the main menu is up. */
+  private readonly hud = new Container();
   private palette?: ToolPalette;
   private overlay?: OverlayButton;
   private rci?: RciWidget;
@@ -37,13 +47,9 @@ export class UIApp {
   private selectionReadout?: SelectionReadout;
   private radio?: RadioPlayer;
   private pauseBanner?: Text;
+  private menu?: MainMenu;
 
-  async init(
-    mapW: number,
-    mapH: number,
-    cb: UICallbacks,
-    radio: RadioService,
-  ): Promise<void> {
+  async init(cb: UICallbacks, radio: RadioService): Promise<void> {
     const app = new Application();
     await app.init({
       resizeTo: window,
@@ -67,7 +73,6 @@ export class UIApp {
     this.system = new SystemBar(cb.onSystemAction, await loadSystemIcons());
     this.rci = new RciWidget();
     this.budget = new BudgetBar(await loadOptionalTexture("coin"));
-    this.minimap = new Minimap(mapW, mapH);
     this.notifications = new Notifications();
     this.selectionReadout = new SelectionReadout();
     this.radio = new RadioPlayer(radio);
@@ -84,8 +89,9 @@ export class UIApp {
     this.pauseBanner.alpha = 0.5;
     this.pauseBanner.visible = false;
 
-    app.stage.addChild(
-      this.minimap.container,
+    // In-game HUD — built now, but hidden until a city starts. The minimap is
+    // added later by `onGameStart` once the map dimensions are known.
+    this.hud.addChild(
       this.palette.container,
       this.overlay.container,
       this.system.container,
@@ -96,9 +102,40 @@ export class UIApp {
       this.radio.container,
       this.pauseBanner,
     );
+    this.hud.visible = false;
+
+    this.menu = new MainMenu(
+      { onNewCity: cb.onNewCity, onLoadCity: cb.onLoadCity },
+      cb.listSlots,
+    );
+
+    app.stage.addChild(this.hud, this.menu.container);
+    canvas.style.pointerEvents = "auto"; // the menu needs pointer input
     this.layout();
     window.addEventListener("resize", this.onResize);
     app.ticker.add((t) => this.notifications?.update(t.deltaMS));
+  }
+
+  /**
+   * Reveal the HUD for a freshly-started city. Builds the minimap at the map's
+   * dimensions and hides the main menu.
+   */
+  onGameStart(mapW: number, mapH: number): void {
+    this.minimap?.container.destroy({ children: true });
+    this.minimap = new Minimap(mapW, mapH);
+    this.hud.addChildAt(this.minimap.container, 0);
+    this.hud.visible = true;
+    if (this.menu) this.menu.container.visible = false;
+    if (this.app) this.app.canvas.style.pointerEvents = "none";
+    this.layout();
+  }
+
+  /** Return to the main menu, hiding the HUD. */
+  showMenu(): void {
+    this.hud.visible = false;
+    if (this.menu) this.menu.container.visible = true;
+    if (this.app) this.app.canvas.style.pointerEvents = "auto";
+    this.layout();
   }
 
   /** True if a press at `(x, y)` lands on a HUD widget (input should ignore it). */
@@ -191,6 +228,7 @@ export class UIApp {
     this.selectionReadout?.layout(width);
     this.radio?.layout();
     this.pauseBanner?.position.set(width / 2, height / 2 - 40);
+    this.menu?.layout(width, height);
   }
 
   private onResize = (): void => this.layout();

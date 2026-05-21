@@ -1,8 +1,9 @@
 import type { Random } from "../../engine/Random";
 import type { CityData } from "../CityData";
 import type { GameEventBus } from "../events";
-import { Zone } from "../layers";
+import { Biome, Zone } from "../layers";
 import { growthChance, levelCapFor, MAX_BUILD_LEVEL } from "../development";
+import { BIOME_GROWTH_MOD } from "../BiomeMap";
 
 /**
  * Grows, levels up, and declines buildings on zoned land. A tile develops when
@@ -28,14 +29,16 @@ export class DevelopmentSystem {
       const demand = demandFor(city, zone);
       const level = city.buildLevel[i];
 
+      const biomeMod = BIOME_GROWTH_MOD[city.biome[i] as Biome];
+
       if (serviced && demand > 0) {
         if (level === 0) {
-          if (this.random.chance(growthChance(demand))) {
+          if (this.random.chance(growthChance(demand) * biomeMod)) {
             city.buildLevel[i] = 1;
             changed = true;
           }
         } else if (level < this.levelCap(city, i, zone) && demand > 20) {
-          if (this.random.chance(growthChance(demand) * 0.5)) {
+          if (this.random.chance(growthChance(demand) * 0.5 * biomeMod)) {
             city.buildLevel[i] = level + 1;
             changed = true;
           }

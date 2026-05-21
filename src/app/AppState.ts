@@ -1,6 +1,6 @@
 /**
- * Application state machine. Phase 0 covers `boot → playing`; Phase 6 expands it
- * to `mainMenu` and `paused` with save/load transitions.
+ * Application state machine: `boot → mainMenu → playing`, plus the read-only
+ * `sandbox` and `traffic-sandbox` states.
  *
  * Each state can hook the two clocks: `onSimTick` (fixed timestep) and
  * `onRenderFrame` (variable). `enter`/`exit` bracket the state's lifetime.

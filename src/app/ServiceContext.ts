@@ -8,7 +8,8 @@ import type { StateMachine } from "./AppState";
  * `App` and handed to each state so states stay thin and decoupled.
  */
 export interface ServiceContext {
-  readonly world: World;
+  /** The active city. Replaced when a new game starts or a save is loaded. */
+  world: World;
   readonly renderer: WorldRenderer;
   readonly loop: GameLoop;
   readonly states: StateMachine;
