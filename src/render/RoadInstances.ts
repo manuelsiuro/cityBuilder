@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { CityData } from "../sim/CityData";
 import { MeshBuilder } from "./meshlib/buildingFactory";
-import { TILE, tileCenterX, tileCenterZ, tileSurfaceY } from "./constants";
+import { TILE, hashTile, tileCenterX, tileCenterZ, tileSurfaceY } from "./constants";
 
 /** Neighbour offsets and the edge-aligned yaw for each. */
 const DIRS = [
@@ -151,7 +151,7 @@ export class RoadInstances {
         }
 
         // A street lamp on a kerb corner of roughly every fourth road tile.
-        const h = roadHash(tx, ty);
+        const h = hashTile(tx, ty);
         if (h % 4 === 0 && lampN < this.maxRoad) {
           const cdx = h & 1 ? 1 : -1;
           const cdz = h & 2 ? 1 : -1;
@@ -189,13 +189,6 @@ export class RoadInstances {
     (this.crosswalks.material as THREE.Material).dispose();
     this.lampMaterial.dispose();
   }
-}
-
-/** Deterministic per-tile hash for street-lamp placement. */
-function roadHash(x: number, y: number): number {
-  let h = (Math.imul(x, 374761393) ^ Math.imul(y, 668265263)) >>> 0;
-  h ^= h >>> 13;
-  return h >>> 0;
 }
 
 /** A short street lamp: pole, arm and a warm lamp head. */
