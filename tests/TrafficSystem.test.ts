@@ -109,4 +109,42 @@ describe("TrafficSystem", () => {
     const traffic = run(new CityData(16, 16), 60, { target: 40 });
     expect(traffic.cars.some((c) => c.active)).toBe(false);
   });
+
+  it("re-routes a gridlocked car instead of dropping it", () => {
+    const city = gridCity();
+    const events = new EventBus<GameEventMap>();
+    const graph = new RoadGraph();
+    graph.rebuild(city);
+    const intersections = new IntersectionSystem(events);
+    const traffic = new TrafficSystem(graph, intersections, new Random(1), events);
+    traffic.targetOverride = 5;
+    for (let t = 0; t < 20; t++) {
+      intersections.update(city);
+      traffic.update(city, t);
+    }
+
+    const car = traffic.cars.find((c) => c.active && c.pos < c.path.length - 3);
+    expect(car).toBeDefined();
+
+    // Freeze the car so the stuck timer fires, then push it past the limit.
+    car!.cruiseSpeed = 0;
+    car!.speed = 0;
+    car!.stuckTicks = 999;
+    const oldPath = car!.path;
+    traffic.update(city, 20);
+
+    // It re-routed rather than vanishing: still active, flagged, fresh path.
+    expect(car!.active).toBe(true);
+    expect(car!.rerouted).toBe(true);
+    expect(car!.path).not.toBe(oldPath);
+
+    // A second gridlock with its one re-route spent retires it. Spawning is
+    // disabled so the freed pool slot is not recycled before the assertion.
+    traffic.targetOverride = 0;
+    car!.cruiseSpeed = 0;
+    car!.speed = 0;
+    car!.stuckTicks = 999;
+    traffic.update(city, 21);
+    expect(car!.active).toBe(false);
+  });
 });

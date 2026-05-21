@@ -31,6 +31,8 @@ export interface Car {
   prevTileY: number;
   /** Consecutive ticks spent essentially stopped — recycles gridlocked cars. */
   stuckTicks: number;
+  /** True once this car has spent its one allowed re-route attempt. */
+  rerouted: boolean;
   color: number;
 }
 
@@ -53,11 +55,21 @@ const INTER_LOOKAHEAD = 6;
 const STOP_GAP = 0.12;
 /** Distance to the stop line within which a car commits to entering. */
 const CLAIM_DIST = 1.2;
-/** Max spawn attempts per tick — bounds A* cost as a city grows. */
-const SPAWN_BUDGET = 2;
+/**
+ * Floor for spawn attempts per tick. The real budget scales with fleet size
+ * (see `spawnToTarget`) so a big city fills up without a visible trickle,
+ * while A* cost per tick stays bounded.
+ */
+const SPAWN_BUDGET_MIN = 2;
+/** One spawn-attempt of headroom per this many cars of target fleet size. */
+const SPAWN_PER = 40;
 /** Cars on the road per unit of (population + jobs). */
 const CARS_PER_CAPITA = 0.02;
-/** Ticks at near-zero speed after which a car gives up and frees its slot. */
+/**
+ * Ticks at near-zero speed after which a car is considered gridlocked. It then
+ * gets one A* re-route attempt; only a car that is still stuck after that (or
+ * has no alternative route) frees its pool slot.
+ */
 const STUCK_LIMIT = 220;
 
 /** Smoothstep easing, used to blend the lane offset across path nodes. */
@@ -106,6 +118,7 @@ export class TrafficSystem {
         prevTileX: 0,
         prevTileY: 0,
         stuckTicks: 0,
+        rerouted: false,
         color: CAR_COLORS[k % CAR_COLORS.length],
       });
     }
@@ -213,7 +226,13 @@ export class TrafficSystem {
       return;
     }
     if (car.stuckTicks > STUCK_LIMIT) {
-      car.active = false; // gridlocked — free the pool slot
+      // Gridlocked: try one re-route around the jam before giving up. A car
+      // with no alternative (or already re-routed once) frees its slot.
+      if (!car.rerouted && this.reroute(city, car)) {
+        car.rerouted = true;
+      } else {
+        car.active = false;
+      }
       return;
     }
 
@@ -426,13 +445,40 @@ export class TrafficSystem {
     return { x: -dy, y: dx };
   }
 
+  /**
+   * Re-plan a stuck car's route from where it sits to its original
+   * destination. A* weighs congestion, so when an alternative exists this
+   * steers the car around the jam. Returns false if no route is found.
+   */
+  private reroute(city: CityData, car: Car): boolean {
+    const { grid } = city;
+    const path = car.path;
+    const len = path.length;
+    const cur = path[Math.max(0, Math.min(Math.round(car.pos), len - 1))];
+    const dest = path[len - 1];
+    if (cur === dest) return false;
+
+    const fresh = findRoadPath(city, cur, dest);
+    if (!fresh || fresh.length < 2) return false;
+
+    car.path = fresh;
+    car.pos = 0;
+    car.speed = 0;
+    car.stuckTicks = 0;
+    car.dir = stepDir(grid.x(fresh[0]), grid.y(fresh[0]), grid.x(fresh[1]), grid.y(fresh[1]));
+    this.placeCar(city, car);
+    car.prevTileX = car.tileX;
+    car.prevTileY = car.tileY;
+    return true;
+  }
+
   /** Spawn cars until the active fleet meets the population-derived target. */
   private spawnToTarget(city: CityData): void {
     let active = 0;
     for (const c of this.cars) if (c.active) active++;
 
     const target = this.carTarget(city);
-    let budget = SPAWN_BUDGET;
+    let budget = Math.max(SPAWN_BUDGET_MIN, Math.ceil(target / SPAWN_PER));
     while (active < target && budget-- > 0) {
       if (!this.trySpawn(city)) break;
       active++;
@@ -469,6 +515,7 @@ export class TrafficSystem {
     free.cruiseSpeed = 0.12 + this.random.next() * 0.1;
     free.speed = 0; // accelerate away from rest
     free.stuckTicks = 0;
+    free.rerouted = false;
     free.dir = stepDir(grid.x(path[0]), grid.y(path[0]), grid.x(path[1]), grid.y(path[1]));
     this.placeCar(city, free);
     free.prevTileX = free.tileX;

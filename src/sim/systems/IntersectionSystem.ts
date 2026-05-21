@@ -96,6 +96,9 @@ export class IntersectionSystem {
       this._list.push({
         tile: i,
         kind: degree === 4 ? "light" : "yield",
+        // Hash the tile coords (coprime multipliers 13 / 7) into a phase
+        // offset so neighbouring signals fall out of lockstep — a crude
+        // "green wave" that keeps a grid of lights from all flipping together.
         offset: (x * 13 + y * 7) % LIGHT_CYCLE,
       });
     }
