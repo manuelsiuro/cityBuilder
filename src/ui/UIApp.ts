@@ -146,7 +146,7 @@ export class UIApp {
   handlePress(x: number, y: number): boolean {
     return (
       this.radio?.handlePress(x, y) === true ||
-      this.palette?.hitTest(x, y) != null ||
+      this.palette?.containsPoint(x, y) === true ||
       this.overlay?.hitTest(x, y) === true ||
       this.system?.hitTest(x, y) === true ||
       this.inspector?.hitTest(x, y) === true
@@ -176,11 +176,7 @@ export class UIApp {
     }
     if (this.inspector?.hitTest(x, y)) return true;
     if (this.radio?.handleTap(x, y)) return true;
-    const tool = this.palette?.hitTest(x, y);
-    if (tool) {
-      this.palette?.select(tool);
-      return true;
-    }
+    if (this.palette?.handleTap(x, y)) return true;
     if (this.overlay?.hitTest(x, y)) {
       this.overlay.cycle();
       return true;
