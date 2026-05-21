@@ -1,6 +1,7 @@
 import { World } from "../sim/World";
 import { WorldRenderer } from "../render/WorldRenderer";
 import { SandboxGallery } from "../render/SandboxGallery";
+import { buildTrafficSandbox } from "./trafficSandbox";
 import { Picker } from "../render/Picker";
 import { Input } from "../input/Input";
 import { ToolController } from "../input/ToolController";
@@ -32,9 +33,16 @@ export class App {
   private picker?: Picker;
   private hoverTile: { x: number; y: number } | null = null;
   private uiCaptured = false;
-  /** When true, the app shows the read-only model gallery instead of the game. */
-  private readonly sandbox = new URLSearchParams(window.location.search).has("sandbox");
+  /**
+   * `?sandbox` value: `null` = normal game, `"traffic"` = live traffic
+   * sandbox, anything else = the read-only model gallery.
+   */
+  private readonly sandboxMode = new URLSearchParams(window.location.search).get("sandbox");
   private sandboxButton?: HTMLButtonElement;
+
+  private get sandbox(): boolean {
+    return this.sandboxMode !== null;
+  }
 
   constructor(mount: HTMLElement) {
     const world = new World(Date.now() >>> 0);
@@ -62,6 +70,10 @@ export class App {
   }
 
   async start(): Promise<void> {
+    if (this.sandboxMode === "traffic") {
+      this.startTrafficSandbox();
+      return;
+    }
     if (this.sandbox) {
       this.startSandbox();
       return;
@@ -71,6 +83,9 @@ export class App {
 
     const ev = world.events;
     ev.on("roads:changed", () => renderer.rebuildRoads(world.city));
+    ev.on("intersections:changed", () =>
+      renderer.rebuildTrafficLights(world.city, world.intersections),
+    );
     ev.on("zones:changed", () => renderer.rebuildZones(world.city));
     ev.on("utilities:changed", () => renderer.rebuildUtilities(world.city));
     ev.on("power:changed", () => renderer.refreshOverlay(world.city, "power"));
@@ -116,6 +131,7 @@ export class App {
         this.ui.setPaused(this.ctx.loop.speedMultiplier === 0);
         this.ui.updateMinimap(world.city, dtMs);
         renderer.updateCars(world.cars, world.city, alpha);
+        renderer.updateTrafficLights(world.tickCount);
         renderer.update(dtMs);
         renderer.render();
       },
@@ -150,6 +166,44 @@ export class App {
     });
     document.body.appendChild(btn);
     this.sandboxButton = btn;
+  }
+
+  /** Lay the test road grid, spawn a fixed fleet, and run the live sim. */
+  private startTrafficSandbox(): void {
+    const { world, renderer } = this.ctx;
+    buildTrafficSandbox(world.city);
+    world.setCarTargetOverride(70);
+    renderer.buildCity(world.city);
+
+    const ev = world.events;
+    ev.on("roads:changed", () => renderer.rebuildRoads(world.city));
+    ev.on("intersections:changed", () =>
+      renderer.rebuildTrafficLights(world.city, world.intersections),
+    );
+    renderer.isoCamera.zoomBy(0.5);
+
+    this.ctx.states.transitionTo(this.createTrafficSandboxState());
+    this.ctx.loop.start();
+  }
+
+  /** Live-simulation state for the traffic sandbox — camera-only input. */
+  private createTrafficSandboxState(): GameStateHandler {
+    const { world, renderer } = this.ctx;
+    return {
+      name: "traffic-sandbox",
+      enter: () => {
+        this.input = new Input(renderer.canvas);
+        this.wireSandboxInput();
+      },
+      onSimTick: (tickMs) => world.tick(tickMs),
+      onRenderFrame: (dtMs, alpha) => {
+        this.applyKeyboardPan(dtMs);
+        renderer.updateCars(world.cars, world.city, alpha);
+        renderer.updateTrafficLights(world.tickCount);
+        renderer.update(dtMs);
+        renderer.render();
+      },
+    };
   }
 
   private createSandboxState(): GameStateHandler {
@@ -304,6 +358,14 @@ export class App {
 
   private updateHud(): void {
     if (!this.hud) return;
+    if (this.sandboxMode === "traffic") {
+      const { loop, world } = this.ctx;
+      const active = world.cars.reduce((n, c) => n + (c.active ? 1 : 0), 0);
+      this.hud.textContent =
+        `Traffic sandbox · ${loop.fps.toFixed(0)} fps · ${active} cars · ` +
+        "drag to pan · scroll to zoom";
+      return;
+    }
     if (this.sandbox) {
       this.hud.textContent = "Sandbox gallery — drag to pan · scroll to zoom · rotate to spin";
       return;

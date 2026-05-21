@@ -4,6 +4,9 @@ import type { Car } from "../sim/systems/TrafficSystem";
 import { MeshBuilder } from "./meshlib/buildingFactory";
 import { TILE, tileSurfaceY } from "./constants";
 
+/** World-space Y rotation for each travel-direction code (N/E/S/W). */
+const DIR_HEADING = [Math.PI, Math.PI / 2, 0, -Math.PI / 2];
+
 /**
  * Renders car agents as low-poly vehicles. Three body types — sedan, van and
  * box truck — are each their own `InstancedMesh`; a car's pool index picks its
@@ -50,9 +53,14 @@ export class CarRenderer {
         Math.max(0, Math.min(grid.width - 1, Math.round(tx))),
         Math.max(0, Math.min(grid.height - 1, Math.round(ty))),
       );
+      // Heading from the movement vector; a stopped car (no delta) holds the
+      // facing of its current path segment so it doesn't snap to north.
       const dx = car.tileX - car.prevTileX;
       const dz = car.tileY - car.prevTileY;
-      const heading = dx !== 0 || dz !== 0 ? Math.atan2(dx, dz) : 0;
+      const heading =
+        Math.abs(dx) > 1e-4 || Math.abs(dz) > 1e-4
+          ? Math.atan2(dx, dz)
+          : DIR_HEADING[car.dir];
 
       this.dummy.position.set(
         (tx - grid.width / 2 + 0.5) * TILE,

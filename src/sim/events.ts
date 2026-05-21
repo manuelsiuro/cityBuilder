@@ -8,6 +8,8 @@ import type { BudgetReport } from "./systems/BudgetSystem";
 export type GameEventMap = {
   /** Road layer changed — renderer rebuilds road instances. */
   "roads:changed": void;
+  /** Road junctions re-enumerated — renderer rebuilds traffic lights. */
+  "intersections:changed": void;
   /** Zone layer changed — renderer rebuilds the zone overlay. */
   "zones:changed": void;
   /** Power lines, pipes, or structures changed — renderer rebuilds utilities. */

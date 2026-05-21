@@ -8,7 +8,9 @@ import { BuildingInstances } from "./BuildingInstances";
 import { CarRenderer } from "./CarRenderer";
 import { TileOverlay, type TileColorFn } from "./TileOverlay";
 import { UtilityRenderer } from "./UtilityRenderer";
+import { TrafficLightRenderer } from "./TrafficLightRenderer";
 import type { Car } from "../sim/systems/TrafficSystem";
+import type { Intersection } from "../sim/systems/IntersectionSystem";
 import { TILE, tileCenterX, tileCenterZ, tileSurfaceY } from "./constants";
 import type { TileCoord } from "./Picker";
 
@@ -49,6 +51,7 @@ export class WorldRenderer {
   private roads?: RoadInstances;
   private buildings?: BuildingInstances;
   private cars?: CarRenderer;
+  private trafficLights?: TrafficLightRenderer;
   private utilities?: UtilityRenderer;
   private zoneOverlay?: TileOverlay;
   private networkOverlay?: TileOverlay;
@@ -98,6 +101,7 @@ export class WorldRenderer {
     this.roads = new RoadInstances(city);
     this.buildings = new BuildingInstances();
     this.cars = new CarRenderer(160);
+    this.trafficLights = new TrafficLightRenderer();
     this.utilities = new UtilityRenderer(city);
     this.zoneOverlay = new TileOverlay(city.grid.size, 0.05, 0.5);
     this.networkOverlay = new TileOverlay(city.grid.size, 0.14, 0.6);
@@ -108,6 +112,7 @@ export class WorldRenderer {
       this.roads.group,
       this.buildings.group,
       this.cars.group,
+      this.trafficLights.group,
       this.utilities.group,
       this.zoneOverlay.mesh,
       this.networkOverlay.mesh,
@@ -154,6 +159,16 @@ export class WorldRenderer {
   /** Interpolate and re-place car instances. Call every render frame. */
   updateCars(cars: readonly Car[], city: CityData, alpha: number): void {
     this.cars?.sync(cars, city, alpha);
+  }
+
+  /** Rebuild traffic-signal meshes — call when road junctions change. */
+  rebuildTrafficLights(city: CityData, intersections: readonly Intersection[]): void {
+    this.trafficLights?.rebuild(city, intersections);
+  }
+
+  /** Recolour traffic signals from the current sim tick. Call every frame. */
+  updateTrafficLights(tick: number): void {
+    this.trafficLights?.update(tick);
   }
 
   /** Refresh the coverage overlay if it is currently showing the given layer. */
@@ -214,6 +229,7 @@ export class WorldRenderer {
     this.roads?.dispose();
     this.buildings?.dispose();
     this.cars?.dispose();
+    this.trafficLights?.dispose();
     this.utilities?.dispose();
     this.zoneOverlay?.dispose();
     this.networkOverlay?.dispose();

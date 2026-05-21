@@ -12,6 +12,7 @@ import type { SaveFile } from "../save/schema";
 import { SLOW_TICKS } from "./development";
 import { RoadGraph } from "./pathfinding/RoadGraph";
 import { RoadSystem } from "./systems/RoadSystem";
+import { IntersectionSystem, type Intersection } from "./systems/IntersectionSystem";
 import { PowerSystem } from "./systems/PowerSystem";
 import { WaterSystem } from "./systems/WaterSystem";
 import { LandValueSystem } from "./systems/LandValueSystem";
@@ -37,6 +38,7 @@ export class World {
   readonly roadGraph = new RoadGraph();
 
   private readonly roadSystem: RoadSystem;
+  private readonly intersectionSystem: IntersectionSystem;
   private readonly powerSystem: PowerSystem;
   private readonly waterSystem: WaterSystem;
   private readonly landValueSystem = new LandValueSystem();
@@ -57,16 +59,32 @@ export class World {
     // the first tick doesn't fire a redundant `terrain:changed` rebuild.
     this.city.clearDirty(Dirty.Terrain);
     this.roadSystem = new RoadSystem(this.roadGraph, this.events);
+    this.intersectionSystem = new IntersectionSystem(this.events);
     this.powerSystem = new PowerSystem(this.events);
     this.waterSystem = new WaterSystem(this.events);
     this.developmentSystem = new DevelopmentSystem(this.random, this.events);
-    this.trafficSystem = new TrafficSystem(this.roadGraph, this.random, this.events);
+    this.trafficSystem = new TrafficSystem(
+      this.roadGraph,
+      this.intersectionSystem,
+      this.random,
+      this.events,
+    );
     this.budgetSystem = new BudgetSystem(this.events);
   }
 
   /** Live car agents — read by the renderer. */
   get cars(): readonly Car[] {
     return this.trafficSystem.cars;
+  }
+
+  /** Road junctions — read by the renderer to place and drive traffic lights. */
+  get intersections(): readonly Intersection[] {
+    return this.intersectionSystem.list;
+  }
+
+  /** Sandbox hook: force a fixed car-fleet size regardless of population. */
+  setCarTargetOverride(count: number | null): void {
+    this.trafficSystem.targetOverride = count;
   }
 
   get seed(): number {
@@ -97,6 +115,7 @@ export class World {
     }
 
     this.roadSystem.update(this.city);
+    this.intersectionSystem.update(this.city);
     this.powerSystem.update(this.city);
     this.waterSystem.update(this.city);
     this.trafficSystem.update(this.city, this._tickCount);
@@ -165,6 +184,7 @@ export class World {
     c.clearDirty(Dirty.Terrain);
 
     this.roadSystem.update(c);
+    this.intersectionSystem.update(c);
     this.powerSystem.update(c);
     this.waterSystem.update(c);
     this.landValueSystem.update(c);
