@@ -12,7 +12,7 @@ import { TrafficLightRenderer } from "./TrafficLightRenderer";
 import type { Car } from "../sim/systems/TrafficSystem";
 import type { Intersection } from "../sim/systems/IntersectionSystem";
 import { TILE, tileCenterX, tileCenterZ, tileSurfaceY } from "./constants";
-import type { TileCoord } from "./Picker";
+import type { TileCoord, TileRect } from "./Picker";
 
 /** Power / water coverage overlay mode. */
 export type OverlayMode = "off" | "power" | "water";
@@ -55,6 +55,7 @@ export class WorldRenderer {
   private utilities?: UtilityRenderer;
   private zoneOverlay?: TileOverlay;
   private networkOverlay?: TileOverlay;
+  private rectHighlight?: TileOverlay;
   private city?: CityData;
   private overlayMode: OverlayMode = "off";
   private readonly highlight: THREE.Mesh;
@@ -106,6 +107,8 @@ export class WorldRenderer {
     this.zoneOverlay = new TileOverlay(city.grid.size, 0.05, 0.5);
     this.networkOverlay = new TileOverlay(city.grid.size, 0.14, 0.6);
     this.networkOverlay.visible = false;
+    this.rectHighlight = new TileOverlay(city.grid.size, 0.13, 0.4);
+    this.rectHighlight.visible = false;
 
     this.scene.add(
       this.terrain.mesh,
@@ -116,6 +119,7 @@ export class WorldRenderer {
       this.utilities.group,
       this.zoneOverlay.mesh,
       this.networkOverlay.mesh,
+      this.rectHighlight.mesh,
     );
     this.zoneOverlay.rebuild(city, zoneColor);
     this.utilities.setShowPipes(false);
@@ -209,6 +213,24 @@ export class WorldRenderer {
     this.highlight.visible = true;
   }
 
+  /** Highlight every tile inside a rubber-band selection rectangle. */
+  setRectHighlight(rect: TileRect, city: CityData): void {
+    if (!this.rectHighlight) return;
+    const inRect: TileColorFn = (c, i) => {
+      const gx = c.grid.x(i);
+      const gy = c.grid.y(i);
+      return gx >= rect.x0 && gx <= rect.x1 && gy >= rect.y0 && gy <= rect.y1
+        ? 0xffe14d
+        : null;
+    };
+    this.rectHighlight.rebuild(city, inRect);
+    this.rectHighlight.visible = true;
+  }
+
+  clearRectHighlight(): void {
+    if (this.rectHighlight) this.rectHighlight.visible = false;
+  }
+
   update(dtMs: number): void {
     this.isoCamera.update(dtMs);
   }
@@ -233,6 +255,7 @@ export class WorldRenderer {
     this.utilities?.dispose();
     this.zoneOverlay?.dispose();
     this.networkOverlay?.dispose();
+    this.rectHighlight?.dispose();
     (this.highlight.geometry as THREE.BufferGeometry).dispose();
     (this.highlight.material as THREE.Material).dispose();
     this.renderer.dispose();

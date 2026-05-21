@@ -7,6 +7,14 @@ export interface TileCoord {
   y: number;
 }
 
+/** An inclusive rectangle of tiles; `(x0,y0)` min corner, `(x1,y1)` max corner. */
+export interface TileRect {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
 /**
  * Converts a screen-space pointer position into a tile coordinate by raycasting
  * against the terrain mesh.

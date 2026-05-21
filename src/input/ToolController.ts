@@ -1,6 +1,7 @@
 import type { CommandQueue } from "../engine/CommandQueue";
 import type { Grid } from "../engine/Grid";
 import type { Command } from "../sim/commands";
+import type { TileRect } from "../render/Picker";
 import { Zone } from "../sim/layers";
 import { BUILDING } from "../sim/buildings";
 
@@ -22,16 +23,31 @@ export type Tool =
 /** Tools placed one tile at a time — a drag does not paint a line of them. */
 const POINT_TOOLS = new Set<Tool>(["powerPlant", "waterPump"]);
 
+/** Tools applied to a rubber-band rectangle — emitted on stroke commit. */
+const RECT_TOOLS = new Set<Tool>([
+  "zoneR",
+  "zoneC",
+  "zoneI",
+  "bulldoze",
+  "raiseTerrain",
+  "lowerTerrain",
+]);
+
 /**
  * Holds the active build tool and turns painted tiles into `Command`s on the
  * world's command queue. Line tools interpolate a 4-connected path between
- * successive painted tiles so a fast drag never leaves gaps.
+ * successive painted tiles so a fast drag never leaves gaps. Rect tools record
+ * a press-anchored rectangle and emit it all at once on stroke commit.
  */
 export class ToolController {
   activeTool: Tool = "inspect";
 
   private lastX = -1;
   private lastY = -1;
+
+  private anchorX = -1;
+  private anchorY = -1;
+  private rect: TileRect | null = null;
 
   constructor(private readonly commands: CommandQueue<Command>) {}
 
@@ -40,15 +56,36 @@ export class ToolController {
     return this.activeTool !== "inspect";
   }
 
+  /** True when the active tool selects a rubber-band rectangle. */
+  isRectTool(): boolean {
+    return RECT_TOOLS.has(this.activeTool);
+  }
+
+  /** The rectangle a rect-tool stroke would apply, or null when none is pending. */
+  get pendingRect(): TileRect | null {
+    return this.rect;
+  }
+
   /** Begin a fresh drag stroke; call on each pointer press. */
   beginStroke(): void {
     this.lastX = -1;
     this.lastY = -1;
+    this.anchorX = -1;
+    this.anchorY = -1;
+    this.rect = null;
   }
 
   /** Paint a tile, filling the gap from the previously painted tile. */
   paint(tx: number, ty: number, grid: Grid): void {
     if (!this.isBuilding) return;
+    if (RECT_TOOLS.has(this.activeTool)) {
+      if (this.anchorX < 0) {
+        this.anchorX = tx;
+        this.anchorY = ty;
+      }
+      this.rect = normalizeRect(this.anchorX, this.anchorY, tx, ty, grid);
+      return;
+    }
     if (POINT_TOOLS.has(this.activeTool)) {
       this.emit(tx, ty, grid);
       return;
@@ -60,6 +97,23 @@ export class ToolController {
     }
     this.lastX = tx;
     this.lastY = ty;
+  }
+
+  /**
+   * End a stroke; call on each pointer release. For rect tools this emits one
+   * command per tile in the pending rectangle. A no-op for other tools, whose
+   * commands were already emitted during `paint`.
+   */
+  commitStroke(grid: Grid): void {
+    if (!this.rect) return;
+    for (let y = this.rect.y0; y <= this.rect.y1; y++) {
+      for (let x = this.rect.x0; x <= this.rect.x1; x++) {
+        this.emit(x, y, grid);
+      }
+    }
+    this.rect = null;
+    this.anchorX = -1;
+    this.anchorY = -1;
   }
 
   /**
@@ -122,4 +176,22 @@ export class ToolController {
         return null;
     }
   }
+}
+
+/** Sort two corners into a min/max rectangle and clamp it to the grid. */
+function normalizeRect(
+  ax: number,
+  ay: number,
+  bx: number,
+  by: number,
+  grid: Grid,
+): TileRect {
+  const clampX = (v: number) => Math.max(0, Math.min(grid.width - 1, v));
+  const clampY = (v: number) => Math.max(0, Math.min(grid.height - 1, v));
+  return {
+    x0: clampX(Math.min(ax, bx)),
+    y0: clampY(Math.min(ay, by)),
+    x1: clampX(Math.max(ax, bx)),
+    y1: clampY(Math.max(ay, by)),
+  };
 }

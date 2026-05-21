@@ -6,6 +6,7 @@ import { BudgetBar } from "./components/BudgetBar";
 import { SystemBar, type SystemAction, type SystemIcons } from "./components/SystemBar";
 import { Minimap } from "./components/Minimap";
 import { Notifications } from "./components/Notifications";
+import { SelectionReadout } from "./components/SelectionReadout";
 import { RadioPlayer } from "./components/RadioPlayer";
 import type { RadioService } from "../radio/RadioService";
 import type { Tool } from "../input/ToolController";
@@ -33,6 +34,7 @@ export class UIApp {
   private system?: SystemBar;
   private minimap?: Minimap;
   private notifications?: Notifications;
+  private selectionReadout?: SelectionReadout;
   private radio?: RadioPlayer;
   private pauseBanner?: Text;
 
@@ -67,6 +69,7 @@ export class UIApp {
     this.budget = new BudgetBar(await loadOptionalTexture("coin"));
     this.minimap = new Minimap(mapW, mapH);
     this.notifications = new Notifications();
+    this.selectionReadout = new SelectionReadout();
     this.radio = new RadioPlayer(radio);
     this.pauseBanner = new Text({
       text: "PAUSED",
@@ -89,6 +92,7 @@ export class UIApp {
       this.rci.container,
       this.budget.container,
       this.notifications.container,
+      this.selectionReadout.container,
       this.radio.container,
       this.pauseBanner,
     );
@@ -136,6 +140,15 @@ export class UIApp {
     this.palette?.setActive(tool);
   }
 
+  /** Show the live tile-count / cost readout for a rubber-band selection. */
+  setSelectionReadout(tiles: number, cost: number | null, affordable: boolean): void {
+    this.selectionReadout?.show(tiles, cost, affordable);
+  }
+
+  clearSelectionReadout(): void {
+    this.selectionReadout?.hide();
+  }
+
   setDemand(r: number, c: number, i: number): void {
     this.rci?.update(r, c, i);
   }
@@ -175,6 +188,7 @@ export class UIApp {
     this.budget?.layout(width);
     this.minimap?.layout(width, height);
     this.notifications?.layout();
+    this.selectionReadout?.layout(width);
     this.radio?.layout();
     this.pauseBanner?.position.set(width / 2, height / 2 - 40);
   }
