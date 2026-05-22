@@ -20,6 +20,12 @@ export function generateTerrain(
   settings: MapSettings = DEFAULT_MAP_SETTINGS,
 ): void {
   const { width, height, size } = city.grid;
+
+  if (settings.flat) {
+    generateFlat(city, random, settings);
+    return;
+  }
+
   const noise = new ValueNoise(random);
 
   // --- 1. Domain-warped fractal height field ----------------------------
@@ -110,6 +116,24 @@ export function generateTerrain(
     city.trees[i] = chance > 0 && random.chance(chance) ? 60 + random.int(196) : 0;
   }
 
+  city.markDirty(Dirty.Terrain);
+}
+
+/**
+ * Flat-map variant: every tile is buildable grassland at elevation 0 with the
+ * Plains biome — no hills, water, rivers or coast. Trees still scatter by
+ * `treeDensity`, matching the hilly path's rule.
+ */
+function generateFlat(city: CityData, random: Random, settings: MapSettings): void {
+  const { size } = city.grid;
+  const treeChance = biomeTreeWeight(Biome.Plains) * settings.treeDensity;
+  for (let i = 0; i < size; i++) {
+    city.elevation[i] = 0;
+    city.terrainType[i] = TerrainType.Grass;
+    city.biome[i] = Biome.Plains;
+    city.trees[i] =
+      treeChance > 0 && random.chance(treeChance) ? 60 + random.int(196) : 0;
+  }
   city.markDirty(Dirty.Terrain);
 }
 

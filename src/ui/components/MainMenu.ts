@@ -10,7 +10,7 @@ import { SaveSlotList } from "./SaveSlotList";
 
 const FONT = "ui-sans-serif, system-ui, sans-serif";
 const PANEL_W = 480;
-const PANEL_H = 512;
+const PANEL_H = 580;
 const PAD = 44;
 
 export interface MenuCallbacks {
@@ -85,7 +85,7 @@ export class MainMenu {
   private sliderTrack(index: number): { x: number; y: number; w: number } {
     return {
       x: this.panelX + PAD,
-      y: this.panelY + 256 + index * 64,
+      y: this.panelY + 300 + index * 64,
       w: PANEL_W - PAD * 2,
     };
   }
@@ -175,30 +175,46 @@ export class MainMenu {
       );
     });
 
+    // --- Terrain toggle ---
+    this.addText("Terrain", left, this.panelY + 236,
+      { size: 14, color: 0xb6bfca, anchorX: 0 });
+    const terrainX = left + 80;
+    const terrainW = (right - terrainX - 8) / 2;
+    ([["Hills", false], ["Flat", true]] as const).forEach(([label, flat], i) => {
+      const bx = terrainX + i * (terrainW + 8) + terrainW / 2;
+      this.addButton(label, bx, this.panelY + 236, terrainW, 40,
+        () => { this.settings.flat = flat; this.render(); },
+        this.settings.flat === flat, 12.5);
+    });
+
     // --- Sliders ---
     SLIDERS.forEach((def, i) => {
       const track = this.sliderTrack(i);
       const value = this.settings[def.key];
+      // Water and roughness have no effect on a flat map — show them disabled.
+      const disabled = this.settings.flat && def.key !== "treeDensity";
       this.addText(def.label, track.x, track.y - 22,
-        { size: 13, color: 0xb6bfca, anchorX: 0 });
+        { size: 13, color: disabled ? 0x5a626d : 0xb6bfca, anchorX: 0 });
       this.addText(`${Math.round(value * 100)}%`, track.x + track.w, track.y - 22,
-        { size: 13, color: 0xeef2f6, weight: "700", anchorX: 1 });
+        { size: 13, color: disabled ? 0x5a626d : 0xeef2f6, weight: "700", anchorX: 1 });
 
       const fillW = track.w * value;
       const bar = new Graphics()
         .roundRect(track.x, track.y - 4, track.w, 8, 4)
         .fill(0x2b313c)
         .roundRect(track.x, track.y - 4, fillW, 8, 4)
-        .fill(0x4a90c2)
+        .fill(disabled ? 0x3a4250 : 0x4a90c2)
         .circle(track.x + fillW, track.y, 9)
-        .fill(0xeef2f6);
-      bar.eventMode = "static";
-      bar.cursor = "pointer";
-      bar.hitArea = { contains: (px, py) => containsTrack(px, py, track) };
-      bar.on("pointerdown", (e: FederatedPointerEvent) => {
-        this.dragKey = def.key;
-        this.setSliderFromEvent(e);
-      });
+        .fill(disabled ? 0x5a626d : 0xeef2f6);
+      if (!disabled) {
+        bar.eventMode = "static";
+        bar.cursor = "pointer";
+        bar.hitArea = { contains: (px, py) => containsTrack(px, py, track) };
+        bar.on("pointerdown", (e: FederatedPointerEvent) => {
+          this.dragKey = def.key;
+          this.setSliderFromEvent(e);
+        });
+      }
       this.container.addChild(bar);
     });
 
