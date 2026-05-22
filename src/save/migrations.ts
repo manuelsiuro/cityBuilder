@@ -1,4 +1,10 @@
-import { CURRENT_VERSION, type SaveFile, type SaveFileV1, type SaveFileV2 } from "./schema";
+import {
+  CURRENT_VERSION,
+  type SaveFile,
+  type SaveFileV1,
+  type SaveFileV2,
+  type SaveFileV3,
+} from "./schema";
 import { Biome, TerrainType } from "../sim/layers";
 
 /**
@@ -18,6 +24,7 @@ export function migrate(raw: unknown): SaveFile {
   }
 
   if (file.version === 1) file = v1ToV2(file as unknown as SaveFileV1);
+  if (file.version === 2) file = v2ToV3(file as unknown as SaveFileV2);
 
   if (file.version !== CURRENT_VERSION) {
     throw new Error(`unsupported save version ${file.version}`);
@@ -45,4 +52,12 @@ function v1ToV2(file: SaveFileV1): SaveFileV2 {
     version: 2,
     layers: { ...file.layers, biome, trees },
   };
+}
+
+/**
+ * v2 → v3: only `meta.thumbnail` was added, and it is optional — an old save
+ * simply has no minimap snapshot.
+ */
+function v2ToV3(file: SaveFileV2): SaveFileV3 {
+  return { ...file, version: 3 };
 }

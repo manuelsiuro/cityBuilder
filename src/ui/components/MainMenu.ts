@@ -5,6 +5,8 @@ import {
   type MapSettings,
   type MapSizeId,
 } from "../../sim/MapSettings";
+import type { SlotMeta } from "../../save/SaveSystem";
+import { SaveSlotList } from "./SaveSlotList";
 
 const FONT = "ui-sans-serif, system-ui, sans-serif";
 const PANEL_W = 480;
@@ -46,7 +48,7 @@ export class MainMenu {
 
   private screen: Screen = "root";
   private settings: MapSettings = { ...DEFAULT_MAP_SETTINGS, seed: randomSeed() };
-  private slots: number[] = [];
+  private slotMetas: SlotMeta[] = [];
   private screenW = window.innerWidth;
   private screenH = window.innerHeight;
 
@@ -55,7 +57,7 @@ export class MainMenu {
 
   constructor(
     private readonly cb: MenuCallbacks,
-    private readonly listSlots: () => Promise<number[]>,
+    private readonly listMetas: () => Promise<SlotMeta[]>,
   ) {
     this.container.eventMode = "static";
     this.container.on("globalpointermove", this.onPointerMove);
@@ -131,11 +133,11 @@ export class MainMenu {
 
     this.addButton("Load City", cx, this.panelY + 332, 300, 60, () => {
       this.screen = "load";
-      this.slots = [];
+      this.slotMetas = [];
       this.render();
-      this.listSlots()
-        .then((slots) => {
-          this.slots = slots;
+      this.listMetas()
+        .then((metas) => {
+          this.slotMetas = metas;
           if (this.screen === "load") this.render();
         })
         .catch(() => { /* keep the empty list */ });
@@ -209,19 +211,13 @@ export class MainMenu {
   }
 
   private renderLoad(): void {
-    this.addText("Saved cities", this.panelX + PANEL_W / 2, this.panelY + 108,
+    this.addText("Saved cities", this.panelX + PANEL_W / 2, this.panelY + 100,
       { size: 16, color: 0xb6bfca });
 
-    if (this.slots.length === 0) {
-      this.addText("No saved cities found", this.panelX + PANEL_W / 2,
-        this.panelY + 220, { size: 14, color: 0x8b95a1 });
-    } else {
-      this.slots.forEach((slot, i) => {
-        this.addButton(`Slot ${slot}`, this.panelX + PANEL_W / 2,
-          this.panelY + 168 + i * 60, PANEL_W - PAD * 2, 48,
-          () => this.cb.onLoadCity(slot));
-      });
-    }
+    const list = new SaveSlotList(PANEL_W - PAD * 2, (slot) => this.cb.onLoadCity(slot));
+    list.container.position.set(this.panelX + PAD, this.panelY + 128);
+    list.render(this.slotMetas.map((m) => ({ slot: m.slot, meta: m.meta })));
+    this.container.addChild(list.container);
 
     this.addButton("Back", this.panelX + PANEL_W / 2, this.panelY + PANEL_H - 52,
       200, 52, () => { this.screen = "root"; this.render(); });

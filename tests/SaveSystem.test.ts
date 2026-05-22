@@ -3,6 +3,7 @@ import { World } from "../src/sim/World";
 import { serializeWorld } from "../src/save/SaveSystem";
 import { migrate } from "../src/save/migrations";
 import { CURRENT_VERSION } from "../src/save/schema";
+import { encodeSaveFile, decodeSaveFile } from "../src/save/codec";
 import { Zone } from "../src/sim/layers";
 
 describe("save serialization", () => {
@@ -58,7 +59,7 @@ describe("migrate", () => {
     expect(() => migrate({ version: CURRENT_VERSION + 1 })).toThrow();
   });
 
-  it("upgrades a v1 save to v2 with synthesized biome and tree layers", () => {
+  it("upgrades a v1 save through to the current version with synthesized layers", () => {
     const file = serializeWorld(new World(1));
     // Strip the v2-only layers to fabricate a v1 save.
     const v1Layers: Record<string, unknown> = { ...file.layers };
@@ -67,9 +68,38 @@ describe("migrate", () => {
     const v1 = { ...file, version: 1, layers: v1Layers };
 
     const migrated = migrate(v1);
-    expect(migrated.version).toBe(2);
+    expect(migrated.version).toBe(CURRENT_VERSION);
     expect(migrated.layers.biome).toBeInstanceOf(Uint8Array);
     expect(migrated.layers.trees).toBeInstanceOf(Uint8Array);
     expect(migrated.layers.biome.length).toBe(file.layers.elevation.length);
+  });
+
+  it("upgrades a v2 save to v3", () => {
+    const file = serializeWorld(new World(1));
+    const v2 = { ...file, version: 2, meta: { ...file.meta, thumbnail: undefined } };
+    expect(migrate(v2).version).toBe(3);
+  });
+});
+
+describe("codec", () => {
+  it("round-trips a save file through JSON text, preserving typed arrays", () => {
+    const w = new World(42);
+    w.commands.push({ type: "buildRoad", x: 64, y: 64 });
+    w.commands.push({ type: "zone", x: 65, y: 64, zone: Zone.Commercial });
+    w.tick(100);
+    const file = serializeWorld(w, "Codec City", "data:image/png;base64,AAAA");
+
+    const decoded = migrate(decodeSaveFile(encodeSaveFile(file)));
+
+    expect(decoded.meta).toEqual(file.meta);
+    expect(decoded.layers.road).toBeInstanceOf(Uint8Array);
+    expect(decoded.layers.buildingId).toBeInstanceOf(Uint16Array);
+    expect(Array.from(decoded.layers.road)).toEqual(Array.from(file.layers.road));
+    expect(Array.from(decoded.layers.buildingId)).toEqual(
+      Array.from(file.layers.buildingId),
+    );
+    expect(Array.from(decoded.layers.elevation)).toEqual(
+      Array.from(file.layers.elevation),
+    );
   });
 });

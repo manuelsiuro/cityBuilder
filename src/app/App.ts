@@ -18,6 +18,7 @@ import { UIApp } from "../ui/UIApp";
 import { toolForKey } from "../ui/components/ToolPalette";
 import type { TileInfoRow } from "../ui/components/TileInspector";
 import { SaveSystem } from "../save/SaveSystem";
+import type { SaveFile } from "../save/schema";
 import { Sfx } from "../engine/Sfx";
 import { RadioService } from "../radio/RadioService";
 import { GameLoop } from "./GameLoop";
@@ -105,8 +106,11 @@ export class App {
       },
       onSystemAction: (action) => this.handleSystemAction(action),
       onNewCity: (settings) => this.beginGame(settings),
-      onLoadCity: (slot) => this.loadGame(slot),
-      listSlots: () => this.save.slots(),
+      onLoadSlot: (slot) => this.loadGame(slot),
+      onSaveToSlot: (slot, name) => this.saveToSlot(slot, name),
+      onExportFile: (name) => this.exportSave(name),
+      onImportFile: (file) => this.importSave(file),
+      listMetas: () => this.save.metas(),
     }, this.radio);
     this.ctx.states.transitionTo(this.createMainMenuState());
     this.ctx.loop.start();
@@ -137,17 +141,55 @@ export class App {
           this.ui.notify("That save slot is empty");
           return;
         }
-        const world = new World({
-          ...DEFAULT_MAP_SETTINGS,
-          seed: file.seed,
-          size: sizeForWidth(file.width),
-        });
-        world.restore(file);
-        this.enterPlaying(world);
-        this.ui.notify("City loaded");
-        this.sfx.confirm();
+        this.loadFile(file);
       })
       .catch(() => this.ui.notify("Load failed"));
+  }
+
+  /** Build a correctly-sized world from a loaded save file and start playing. */
+  private loadFile(file: SaveFile): void {
+    const world = new World({
+      ...DEFAULT_MAP_SETTINGS,
+      seed: file.seed,
+      size: sizeForWidth(file.width),
+    });
+    world.restore(file);
+    this.enterPlaying(world);
+    this.ui.notify(`Loaded "${file.meta.name}"`);
+    this.sfx.confirm();
+  }
+
+  /** Save the current city into `slot`, embedding a fresh minimap thumbnail. */
+  private saveToSlot(slot: number, name: string): void {
+    const { world } = this.ctx;
+    const thumbnail = this.ui.captureMinimap(world.city);
+    this.save
+      .save(world, slot, name, thumbnail)
+      .then(() => {
+        this.ui.notify(`Saved "${name}"`);
+        this.sfx.confirm();
+      })
+      .catch(() => this.ui.notify("Save failed"));
+  }
+
+  /** Download the current city as a `.json` save file. */
+  private exportSave(name: string): void {
+    const { world } = this.ctx;
+    const thumbnail = this.ui.captureMinimap(world.city);
+    try {
+      this.save.exportToFile(world, name, thumbnail);
+      this.ui.notify("Save file downloaded");
+    } catch {
+      this.ui.notify("Export failed");
+    }
+  }
+
+  /** Import a `.json` save file from disk and start playing it. */
+  private importSave(file: File): void {
+    this.save
+      .importFile(file)
+      .then((saveFile) => this.loadFile(saveFile))
+      .catch(() => this.ui.notify("Import failed — not a valid save file"));
   }
 
   /** Swap in `world`, build its scene, wire events, and enter the playing state. */
@@ -388,35 +430,11 @@ export class App {
       return;
     }
     if (action === "save") {
-      this.save
-        .save(world, 0, "City")
-        .then(() => {
-          this.ui.notify("City saved");
-          this.sfx.confirm();
-        })
-        .catch(() => this.ui.notify("Save failed"));
+      this.ui.openSavePanel();
       return;
     }
     // load
-    this.save
-      .load(0)
-      .then((file) => {
-        if (!file) {
-          this.ui.notify("No saved city found");
-          return;
-        }
-        // A save with a different map size needs a fresh, resized world —
-        // restoring in place would mismatch the typed-array layers.
-        if (file.width !== world.city.grid.width) {
-          this.ui.notify("Different map size — load it from the main menu");
-          return;
-        }
-        world.restore(file);
-        renderer.rebuildAll(world.city);
-        this.ui.notify("City loaded");
-        this.sfx.confirm();
-      })
-      .catch(() => this.ui.notify("Load failed"));
+    this.ui.openLoadPanel();
   }
 
   private paintAt(clientX: number, clientY: number): void {

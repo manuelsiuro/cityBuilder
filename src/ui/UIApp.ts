@@ -6,6 +6,8 @@ import { RciWidget } from "./components/RciWidget";
 import { BudgetBar } from "./components/BudgetBar";
 import { SystemBar, type SystemAction, type SystemIcons } from "./components/SystemBar";
 import { Minimap } from "./components/Minimap";
+import { SaveLoadPanel } from "./components/SaveLoadPanel";
+import type { SlotMeta } from "../save/SaveSystem";
 import { Notifications } from "./components/Notifications";
 import { SelectionReadout } from "./components/SelectionReadout";
 import { TileInspector, type TileInfo } from "./components/TileInspector";
@@ -22,10 +24,16 @@ export interface UICallbacks {
   onSystemAction: (action: SystemAction) => void;
   /** New City requested from the main menu, with chosen map settings. */
   onNewCity: (settings: MapSettings) => void;
-  /** Load City requested from the main menu, for the given save slot. */
-  onLoadCity: (slot: number) => void;
-  /** List the save slots that currently hold a city. */
-  listSlots: () => Promise<number[]>;
+  /** Load a saved slot into a fresh world (main menu or in-game panel). */
+  onLoadSlot: (slot: number) => void;
+  /** Save the current city into a numbered slot under `name`. */
+  onSaveToSlot: (slot: number, name: string) => void;
+  /** Download the current city as a portable `.json` save file. */
+  onExportFile: (name: string) => void;
+  /** Import a `.json` save file chosen from disk. */
+  onImportFile: (file: File) => void;
+  /** Slot + metadata for every saved city — drives the save/load UI. */
+  listMetas: () => Promise<SlotMeta[]>;
 }
 
 /**
@@ -50,6 +58,7 @@ export class UIApp {
   private radio?: RadioPlayer;
   private pauseBanner?: Text;
   private menu?: MainMenu;
+  private saveLoadPanel?: SaveLoadPanel;
 
   async init(cb: UICallbacks, radio: RadioService): Promise<void> {
     const app = new Application();
@@ -109,11 +118,22 @@ export class UIApp {
     this.hud.visible = false;
 
     this.menu = new MainMenu(
-      { onNewCity: cb.onNewCity, onLoadCity: cb.onLoadCity },
-      cb.listSlots,
+      { onNewCity: cb.onNewCity, onLoadCity: cb.onLoadSlot },
+      cb.listMetas,
     );
 
-    app.stage.addChild(this.hud, this.menu.container);
+    this.saveLoadPanel = new SaveLoadPanel(
+      {
+        listMetas: cb.listMetas,
+        onSaveToSlot: (slot, name) => { cb.onSaveToSlot(slot, name); this.closeSaveLoad(); },
+        onLoadSlot: (slot) => { cb.onLoadSlot(slot); this.closeSaveLoad(); },
+        onExportFile: (name) => { cb.onExportFile(name); this.closeSaveLoad(); },
+        onImportFile: (file) => { cb.onImportFile(file); this.closeSaveLoad(); },
+      },
+      () => this.closeSaveLoad(),
+    );
+
+    app.stage.addChild(this.hud, this.menu.container, this.saveLoadPanel.container);
     canvas.style.pointerEvents = "auto"; // the menu needs pointer input
     this.layout();
     window.addEventListener("resize", this.onResize);
@@ -228,6 +248,29 @@ export class UIApp {
     this.minimap?.update(city, dtMs);
   }
 
+  /** Capture the minimap as a base64 PNG, for embedding in a save file. */
+  captureMinimap(city: CityData): string | undefined {
+    return this.minimap?.snapshot(city);
+  }
+
+  /** Open the in-game save panel; the canvas takes pointer input while it's up. */
+  openSavePanel(): void {
+    this.saveLoadPanel?.open("save");
+    if (this.app) this.app.canvas.style.pointerEvents = "auto";
+  }
+
+  /** Open the in-game load panel. */
+  openLoadPanel(): void {
+    this.saveLoadPanel?.open("load");
+    if (this.app) this.app.canvas.style.pointerEvents = "auto";
+  }
+
+  private closeSaveLoad(): void {
+    this.saveLoadPanel?.close();
+    // Hand pointer input back to the world canvas (unless the menu is up).
+    if (this.app && this.hud.visible) this.app.canvas.style.pointerEvents = "none";
+  }
+
   notify(text: string, level: "info" | "warn" = "info"): void {
     this.notifications?.push(text, level);
   }
@@ -256,6 +299,7 @@ export class UIApp {
     this.radio?.layout();
     this.pauseBanner?.position.set(width / 2, height / 2 - 40);
     this.menu?.layout(width, height);
+    this.saveLoadPanel?.layout(width, height);
   }
 
   private onResize = (): void => this.layout();
