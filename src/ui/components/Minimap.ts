@@ -54,7 +54,16 @@ export class Minimap {
     this.accum += dtMs;
     if (this.accum < REDRAW_MS) return;
     this.accum = 0;
+    this.redraw(city);
+  }
 
+  /** Force an immediate redraw and return the map as a base64 PNG data URL. */
+  snapshot(city: CityData): string {
+    this.redraw(city);
+    return this.canvas.toDataURL("image/png");
+  }
+
+  private redraw(city: CityData): void {
     const data = this.img.data;
     for (let i = 0; i < city.grid.size; i++) {
       const [r, g, b] = colorFor(city, i);

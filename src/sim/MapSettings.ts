@@ -22,6 +22,8 @@ export interface MapSettings {
   roughness: number;
   /** How much forest the biome pass places, 0..1. */
   treeDensity: number;
+  /** When true, skip procedural hills/water — generate flat buildable grassland. */
+  flat: boolean;
 }
 
 export const DEFAULT_MAP_SETTINGS: MapSettings = {
@@ -30,4 +32,5 @@ export const DEFAULT_MAP_SETTINGS: MapSettings = {
   water: 0.34,
   roughness: 0.5,
   treeDensity: 0.4,
+  flat: false,
 };

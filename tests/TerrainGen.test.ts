@@ -104,4 +104,24 @@ describe("generateTerrain", () => {
     for (let i = 0; i < city.grid.size; i++) if (city.trees[i] > 0) trees++;
     expect(trees).toBeGreaterThan(0);
   });
+
+  it("makes a flat map all grassland at elevation 0", () => {
+    const city = generate(7, { flat: true });
+    for (let i = 0; i < city.grid.size; i++) {
+      expect(city.elevation[i]).toBe(0);
+      expect(city.terrainType[i]).toBe(TerrainType.Grass);
+      expect(city.biome[i]).toBe(Biome.Plains);
+    }
+    expect(countWater(city)).toBe(0);
+  });
+
+  it("still scatters trees by density on a flat map", () => {
+    const bare = generate(13, { flat: true, treeDensity: 0 });
+    for (let i = 0; i < bare.grid.size; i++) expect(bare.trees[i]).toBe(0);
+
+    const wooded = generate(13, { flat: true, treeDensity: 1 });
+    let trees = 0;
+    for (let i = 0; i < wooded.grid.size; i++) if (wooded.trees[i] > 0) trees++;
+    expect(trees).toBeGreaterThan(0);
+  });
 });

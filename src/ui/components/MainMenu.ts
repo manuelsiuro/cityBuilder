@@ -5,10 +5,12 @@ import {
   type MapSettings,
   type MapSizeId,
 } from "../../sim/MapSettings";
+import type { SlotMeta } from "../../save/SaveSystem";
+import { SaveSlotList } from "./SaveSlotList";
 
 const FONT = "ui-sans-serif, system-ui, sans-serif";
 const PANEL_W = 480;
-const PANEL_H = 512;
+const PANEL_H = 580;
 const PAD = 44;
 
 export interface MenuCallbacks {
@@ -46,7 +48,7 @@ export class MainMenu {
 
   private screen: Screen = "root";
   private settings: MapSettings = { ...DEFAULT_MAP_SETTINGS, seed: randomSeed() };
-  private slots: number[] = [];
+  private slotMetas: SlotMeta[] = [];
   private screenW = window.innerWidth;
   private screenH = window.innerHeight;
 
@@ -55,7 +57,7 @@ export class MainMenu {
 
   constructor(
     private readonly cb: MenuCallbacks,
-    private readonly listSlots: () => Promise<number[]>,
+    private readonly listMetas: () => Promise<SlotMeta[]>,
   ) {
     this.container.eventMode = "static";
     this.container.on("globalpointermove", this.onPointerMove);
@@ -83,7 +85,7 @@ export class MainMenu {
   private sliderTrack(index: number): { x: number; y: number; w: number } {
     return {
       x: this.panelX + PAD,
-      y: this.panelY + 256 + index * 64,
+      y: this.panelY + 300 + index * 64,
       w: PANEL_W - PAD * 2,
     };
   }
@@ -131,11 +133,11 @@ export class MainMenu {
 
     this.addButton("Load City", cx, this.panelY + 332, 300, 60, () => {
       this.screen = "load";
-      this.slots = [];
+      this.slotMetas = [];
       this.render();
-      this.listSlots()
-        .then((slots) => {
-          this.slots = slots;
+      this.listMetas()
+        .then((metas) => {
+          this.slotMetas = metas;
           if (this.screen === "load") this.render();
         })
         .catch(() => { /* keep the empty list */ });
@@ -173,30 +175,46 @@ export class MainMenu {
       );
     });
 
+    // --- Terrain toggle ---
+    this.addText("Terrain", left, this.panelY + 236,
+      { size: 14, color: 0xb6bfca, anchorX: 0 });
+    const terrainX = left + 80;
+    const terrainW = (right - terrainX - 8) / 2;
+    ([["Hills", false], ["Flat", true]] as const).forEach(([label, flat], i) => {
+      const bx = terrainX + i * (terrainW + 8) + terrainW / 2;
+      this.addButton(label, bx, this.panelY + 236, terrainW, 40,
+        () => { this.settings.flat = flat; this.render(); },
+        this.settings.flat === flat, 12.5);
+    });
+
     // --- Sliders ---
     SLIDERS.forEach((def, i) => {
       const track = this.sliderTrack(i);
       const value = this.settings[def.key];
+      // Water and roughness have no effect on a flat map — show them disabled.
+      const disabled = this.settings.flat && def.key !== "treeDensity";
       this.addText(def.label, track.x, track.y - 22,
-        { size: 13, color: 0xb6bfca, anchorX: 0 });
+        { size: 13, color: disabled ? 0x5a626d : 0xb6bfca, anchorX: 0 });
       this.addText(`${Math.round(value * 100)}%`, track.x + track.w, track.y - 22,
-        { size: 13, color: 0xeef2f6, weight: "700", anchorX: 1 });
+        { size: 13, color: disabled ? 0x5a626d : 0xeef2f6, weight: "700", anchorX: 1 });
 
       const fillW = track.w * value;
       const bar = new Graphics()
         .roundRect(track.x, track.y - 4, track.w, 8, 4)
         .fill(0x2b313c)
         .roundRect(track.x, track.y - 4, fillW, 8, 4)
-        .fill(0x4a90c2)
+        .fill(disabled ? 0x3a4250 : 0x4a90c2)
         .circle(track.x + fillW, track.y, 9)
-        .fill(0xeef2f6);
-      bar.eventMode = "static";
-      bar.cursor = "pointer";
-      bar.hitArea = { contains: (px, py) => containsTrack(px, py, track) };
-      bar.on("pointerdown", (e: FederatedPointerEvent) => {
-        this.dragKey = def.key;
-        this.setSliderFromEvent(e);
-      });
+        .fill(disabled ? 0x5a626d : 0xeef2f6);
+      if (!disabled) {
+        bar.eventMode = "static";
+        bar.cursor = "pointer";
+        bar.hitArea = { contains: (px, py) => containsTrack(px, py, track) };
+        bar.on("pointerdown", (e: FederatedPointerEvent) => {
+          this.dragKey = def.key;
+          this.setSliderFromEvent(e);
+        });
+      }
       this.container.addChild(bar);
     });
 
@@ -209,19 +227,13 @@ export class MainMenu {
   }
 
   private renderLoad(): void {
-    this.addText("Saved cities", this.panelX + PANEL_W / 2, this.panelY + 108,
+    this.addText("Saved cities", this.panelX + PANEL_W / 2, this.panelY + 100,
       { size: 16, color: 0xb6bfca });
 
-    if (this.slots.length === 0) {
-      this.addText("No saved cities found", this.panelX + PANEL_W / 2,
-        this.panelY + 220, { size: 14, color: 0x8b95a1 });
-    } else {
-      this.slots.forEach((slot, i) => {
-        this.addButton(`Slot ${slot}`, this.panelX + PANEL_W / 2,
-          this.panelY + 168 + i * 60, PANEL_W - PAD * 2, 48,
-          () => this.cb.onLoadCity(slot));
-      });
-    }
+    const list = new SaveSlotList(PANEL_W - PAD * 2, (slot) => this.cb.onLoadCity(slot));
+    list.container.position.set(this.panelX + PAD, this.panelY + 128);
+    list.render(this.slotMetas.map((m) => ({ slot: m.slot, meta: m.meta })));
+    this.container.addChild(list.container);
 
     this.addButton("Back", this.panelX + PANEL_W / 2, this.panelY + PANEL_H - 52,
       200, 52, () => { this.screen = "root"; this.render(); });

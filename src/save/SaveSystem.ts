@@ -1,12 +1,19 @@
 import type { World } from "../sim/World";
 import { idbGet, idbSet, idbKeys } from "./storage";
 import { migrate } from "./migrations";
-import { CURRENT_VERSION, type SaveFile } from "./schema";
+import { CURRENT_VERSION, type SaveFile, type SaveMeta } from "./schema";
+import { encodeSaveFile, decodeSaveFile } from "./codec";
 
 const SLOT_PREFIX = "slot:";
 
+/** A slot number paired with its save metadata — drives the save/load UI. */
+export interface SlotMeta {
+  slot: number;
+  meta: SaveMeta;
+}
+
 /** Snapshot a world into a save file. Pure — used by `save()` and by tests. */
-export function serializeWorld(world: World, name = "City"): SaveFile {
+export function serializeWorld(world: World, name = "City", thumbnail?: string): SaveFile {
   const c = world.city;
   return {
     version: CURRENT_VERSION,
@@ -16,6 +23,7 @@ export function serializeWorld(world: World, name = "City"): SaveFile {
       simTick: world.tickCount,
       population: c.population,
       funds: c.funds,
+      thumbnail,
     },
     width: c.grid.width,
     height: c.grid.height,
@@ -44,14 +52,13 @@ export function serializeWorld(world: World, name = "City"): SaveFile {
 }
 
 /**
- * Persists and restores a city to IndexedDB. A save is a snapshot of the
- * source-of-truth layers plus aggregates and RNG state — small, and free of
- * stale derived data.
+ * Persists and restores a city. Saves live in IndexedDB numbered slots, and
+ * can also be exported to / imported from portable `.json` files on disk.
  */
 export class SaveSystem {
   /** Write the current city to a numbered slot. */
-  async save(world: World, slot = 0, name = "City"): Promise<void> {
-    await idbSet(SLOT_PREFIX + slot, serializeWorld(world, name));
+  async save(world: World, slot = 0, name = "City", thumbnail?: string): Promise<void> {
+    await idbSet(SLOT_PREFIX + slot, serializeWorld(world, name, thumbnail));
   }
 
   /** Load a slot, migrating it forward. Returns null if the slot is empty. */
@@ -74,4 +81,45 @@ export class SaveSystem {
       .filter((n) => Number.isInteger(n))
       .sort((a, b) => a - b);
   }
+
+  /** Slot + metadata for every saved city, ascending — feeds the save/load UI. */
+  async metas(): Promise<SlotMeta[]> {
+    const slots = await this.slots();
+    const out: SlotMeta[] = [];
+    for (const slot of slots) {
+      const raw = await idbGet(SLOT_PREFIX + slot);
+      const meta = (raw as { meta?: SaveMeta } | null)?.meta;
+      if (meta) out.push({ slot, meta });
+    }
+    return out;
+  }
+
+  /** Serialize the city and trigger a browser download of a `.json` save file. */
+  exportToFile(world: World, name = "City", thumbnail?: string): void {
+    const file = serializeWorld(world, name, thumbnail);
+    const blob = new Blob([encodeSaveFile(file)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${slugify(name)}-${dateStamp()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  /** Read a `.json` save file from disk, migrating it to the current schema. */
+  async importFile(file: File): Promise<SaveFile> {
+    const text = await file.text();
+    return migrate(decodeSaveFile(text));
+  }
+}
+
+/** A filename-safe form of a city name (`"My City!" → "my-city"`). */
+function slugify(name: string): string {
+  const s = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return s || "city";
+}
+
+/** Today as `YYYY-MM-DD` for the export filename. */
+function dateStamp(): string {
+  return new Date().toISOString().slice(0, 10);
 }

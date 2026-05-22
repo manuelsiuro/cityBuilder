@@ -3,7 +3,7 @@
  * computed layers (powered, watered, land value, pollution, traffic) are
  * recomputed on load, and car agents are respawned.
  */
-export const CURRENT_VERSION = 2;
+export const CURRENT_VERSION = 3;
 
 export interface SaveMeta {
   name: string;
@@ -11,6 +11,8 @@ export interface SaveMeta {
   simTick: number;
   population: number;
   funds: number;
+  /** Base64 PNG data URL of the minimap at save time; absent on pre-v3 saves. */
+  thumbnail?: string;
 }
 
 interface SaveCity {
@@ -42,7 +44,7 @@ export interface SaveFileV1 {
   city: SaveCity;
 }
 
-/** Current schema — adds the `biome` and `trees` terrain layers. */
+/** Adds the `biome` and `trees` terrain layers. */
 export interface SaveFileV2 {
   version: 2;
   meta: SaveMeta;
@@ -67,5 +69,10 @@ export interface SaveFileV2 {
   city: SaveCity;
 }
 
+/** Current schema — identical layers to v2; adds the optional `meta.thumbnail`. */
+export interface SaveFileV3 extends Omit<SaveFileV2, "version"> {
+  version: 3;
+}
+
 /** The current save-file shape. Widen to a union as new versions are added. */
-export type SaveFile = SaveFileV2;
+export type SaveFile = SaveFileV3;
