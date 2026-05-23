@@ -206,6 +206,9 @@ export class App {
     renderer.buildCity(world.city);
     this.wireWorldEvents(world);
     this.ui.onGameStart(world.city.grid.width, world.city.grid.height);
+    // The HTML #debug pill is a sandbox-only fallback; the PixiJS StatusPanel
+    // takes over once a city is in play.
+    if (this.hud) this.hud.style.display = "none";
     this.ctx.states.transitionTo(this.createPlayingState());
   }
 
@@ -252,6 +255,14 @@ export class App {
         this.ui.setDemand(world.city.demandR, world.city.demandC, world.city.demandI);
         this.ui.setFunds(world.city.funds);
         this.ui.setPaused(this.ctx.loop.speedMultiplier === 0);
+        this.ui.setStatus({
+          date: world.dateLabel,
+          population: world.city.population,
+          speed: this.ctx.loop.speedMultiplier,
+          fps: this.ctx.loop.fps,
+          tool: this.tools.activeTool,
+          tile: this.hoverTile,
+        });
         this.ui.updateMinimap(world.city, dtMs);
         renderer.updateCars(world.cars, world.city, alpha);
         renderer.updateServiceVehicles(world.serviceVehicles, world.city, alpha);
@@ -543,6 +554,10 @@ export class App {
     this.ui.showTileInfo({ title: `Tile ${tile.x}, ${tile.y}`, rows });
   }
 
+  /**
+   * Drive the sandbox HTML readout. In the playing state the PixiJS
+   * `StatusPanel` takes over; the `#debug` element is hidden there.
+   */
   private updateHud(): void {
     if (!this.hud) return;
     if (this.sandboxMode === "traffic") {
@@ -555,14 +570,7 @@ export class App {
     }
     if (this.sandbox) {
       this.hud.textContent = "Sandbox gallery — drag to pan · scroll to zoom · rotate to spin";
-      return;
     }
-    const { loop, world } = this.ctx;
-    const speed = loop.speedMultiplier === 0 ? "paused" : `${loop.speedMultiplier}×`;
-    const tile = this.hoverTile ? ` · tile ${this.hoverTile.x},${this.hoverTile.y}` : "";
-    this.hud.textContent =
-      `${loop.fps.toFixed(0)} fps · ${speed} · ${this.tools.activeTool} · ` +
-      `pop ${world.city.population} · ${world.dateLabel}${tile}`;
   }
 
   /** Tear down — releases listeners and GPU resources. */

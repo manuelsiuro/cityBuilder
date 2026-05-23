@@ -3,9 +3,8 @@ import { Container, Graphics, Text } from "pixi.js";
 const W = 250;
 const H = 30;
 const GAP = 6;
-const MARGIN = 12;
-/** Below the debug HUD and the radio dock. */
-const TOP = 86;
+/** Below the BudgetBar at the top centre (12 margin + 58 BudgetBar + 12 gap). */
+const TOP = 82;
 const LIFE_MS = 4200;
 const FADE_MS = 900;
 const MAX = 4;
@@ -15,18 +14,19 @@ interface Toast {
   life: number;
 }
 
-/** Top-left feed of transient notification toasts that fade out. */
+/** Top-centre feed of transient notification toasts that fade out. */
 export class Notifications {
   readonly container = new Container();
 
   private readonly toasts: Toast[] = [];
 
   constructor() {
-    this.container.position.set(MARGIN, TOP);
+    this.container.y = TOP;
   }
 
-  layout(): void {
-    this.container.position.set(MARGIN, TOP);
+  layout(screenW: number): void {
+    this.container.x = Math.round((screenW - W) / 2);
+    this.container.y = TOP;
   }
 
   /** Show a message. The oldest toast is dropped past the cap. */

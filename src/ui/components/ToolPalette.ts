@@ -116,6 +116,11 @@ export function toolForKey(code: string): Tool | null {
   return TOOLS.find((d) => d.key === code)?.tool ?? null;
 }
 
+/** Friendly display label for a tool, e.g. "Power Line" instead of "powerLine". */
+export function toolLabel(tool: Tool): string {
+  return toolDef(tool).label;
+}
+
 /** Icon textures keyed by tool name; missing entries fall back to text only. */
 export type ToolIcons = Partial<Record<Tool, Texture>>;
 

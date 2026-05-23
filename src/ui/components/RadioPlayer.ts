@@ -3,8 +3,8 @@ import { fetchGenre, type RadioGenre, type RadioStation } from "../../radio/Radi
 import type { RadioService } from "../../radio/RadioService";
 
 const MARGIN = 12;
-/** Sits below the debug HUD readout at the top-left. */
-const TOP = 38;
+/** Sits below the StatusPanel card at the top-left (12 + 84 + 12). */
+const TOP = 108;
 
 const BAR_W = 340;
 const BAR_H = 40;

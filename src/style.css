@@ -32,7 +32,8 @@ body {
   height: 100%;
 }
 
-/* Debug HUD — Phase 0 readout. Replaced by the PixiJS HUD in Phase 2+. */
+/* Sandbox-only fallback readout. In the playing state the PixiJS
+   StatusPanel takes over and this element is hidden. */
 #debug {
   position: fixed;
   top: 10px;

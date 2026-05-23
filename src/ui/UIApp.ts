@@ -4,6 +4,7 @@ import { MainMenu } from "./components/MainMenu";
 import { OverlayBar, type OverlayChoice } from "./components/OverlayBar";
 import { RciWidget } from "./components/RciWidget";
 import { BudgetBar } from "./components/BudgetBar";
+import { StatusPanel, type StatusInfo } from "./components/StatusPanel";
 import { SystemBar, type SystemAction, type SystemIcons } from "./components/SystemBar";
 import { Minimap } from "./components/Minimap";
 import { SaveLoadPanel } from "./components/SaveLoadPanel";
@@ -51,6 +52,7 @@ export class UIApp {
   private onOverlayChange?: (mode: OverlayChoice) => void;
   private rci?: RciWidget;
   private budget?: BudgetBar;
+  private status?: StatusPanel;
   private system?: SystemBar;
   private minimap?: Minimap;
   private notifications?: Notifications;
@@ -86,6 +88,7 @@ export class UIApp {
     this.system = new SystemBar(cb.onSystemAction, await loadSystemIcons());
     this.rci = new RciWidget();
     this.budget = new BudgetBar(await loadOptionalTexture("coin"));
+    this.status = new StatusPanel();
     this.notifications = new Notifications();
     this.selectionReadout = new SelectionReadout();
     this.inspector = new TileInspector();
@@ -111,6 +114,7 @@ export class UIApp {
       this.system.container,
       this.rci.container,
       this.budget.container,
+      this.status.container,
       this.notifications.container,
       this.selectionReadout.container,
       this.inspector.container,
@@ -253,6 +257,11 @@ export class UIApp {
     this.budget?.setReport(report);
   }
 
+  /** Update the top-left status card (date, population, sim speed, dev info). */
+  setStatus(info: StatusInfo): void {
+    this.status?.setStatus(info);
+  }
+
   updateMinimap(city: CityData, dtMs: number): void {
     this.minimap?.update(city, dtMs);
   }
@@ -301,8 +310,9 @@ export class UIApp {
     this.system?.layout(width);
     this.rci?.layout(width, height);
     this.budget?.layout(width);
+    this.status?.layout();
     this.minimap?.layout(width, height);
-    this.notifications?.layout();
+    this.notifications?.layout(width);
     this.selectionReadout?.layout(width);
     this.inspector?.layout(width, height);
     this.radio?.layout();
