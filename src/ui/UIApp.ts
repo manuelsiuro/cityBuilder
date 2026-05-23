@@ -1,7 +1,7 @@
 import { Application, Assets, Container, Text, type Texture } from "pixi.js";
 import { ToolPalette, type ToolIcons } from "./components/ToolPalette";
 import { MainMenu } from "./components/MainMenu";
-import { OverlayButton, type OverlayChoice } from "./components/OverlayButton";
+import { OverlayBar, type OverlayChoice } from "./components/OverlayBar";
 import { RciWidget } from "./components/RciWidget";
 import { BudgetBar } from "./components/BudgetBar";
 import { SystemBar, type SystemAction, type SystemIcons } from "./components/SystemBar";
@@ -47,7 +47,8 @@ export class UIApp {
   /** Holds every in-game HUD widget; hidden while the main menu is up. */
   private readonly hud = new Container();
   private palette?: ToolPalette;
-  private overlay?: OverlayButton;
+  private overlay?: OverlayBar;
+  private onOverlayChange?: (mode: OverlayChoice) => void;
   private rci?: RciWidget;
   private budget?: BudgetBar;
   private system?: SystemBar;
@@ -80,7 +81,8 @@ export class UIApp {
     document.body.appendChild(canvas);
 
     this.palette = new ToolPalette(cb.onSelectTool, await loadToolIcons());
-    this.overlay = new OverlayButton(cb.onOverlayChange);
+    this.onOverlayChange = cb.onOverlayChange;
+    this.overlay = new OverlayBar(cb.onOverlayChange);
     this.system = new SystemBar(cb.onSystemAction, await loadSystemIcons());
     this.rci = new RciWidget();
     this.budget = new BudgetBar(await loadOptionalTexture("coin"));
@@ -197,10 +199,7 @@ export class UIApp {
     if (this.inspector?.hitTest(x, y)) return true;
     if (this.radio?.handleTap(x, y)) return true;
     if (this.palette?.handleTap(x, y)) return true;
-    if (this.overlay?.hitTest(x, y)) {
-      this.overlay.cycle();
-      return true;
-    }
+    if (this.overlay?.handleTap(x, y)) return true;
     return this.system?.activate(x, y) ?? false;
   }
 
@@ -211,6 +210,16 @@ export class UIApp {
   /** Select a tool as if its palette button were clicked (keyboard shortcut). */
   chooseTool(tool: Tool): void {
     this.palette?.select(tool);
+  }
+
+  /**
+   * Programmatic overlay change — used by the tool layer to auto-switch the
+   * overlay when the player picks a utility/service tool. Updates the bar's
+   * highlighted button AND notifies the renderer, just like a manual click.
+   */
+  setOverlayMode(mode: OverlayChoice): void {
+    this.overlay?.setMode(mode);
+    this.onOverlayChange?.(mode);
   }
 
   /** Populate and reveal the tile-inspector panel. */

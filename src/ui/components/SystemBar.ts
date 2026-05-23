@@ -10,8 +10,8 @@ const BTN_H = 36;
 const GAP = 6;
 const MARGIN = 12;
 const ICON = 22;
-/** Sits below the overlay button (12 + 38 + 8). */
-const TOP = 58;
+/** Sits below the overlay bar (12 margin + 66 bar height + 8 gap). */
+const TOP = 86;
 
 const DEFS: { id: SystemAction; label: string }[] = [
   { id: "new", label: "New" },

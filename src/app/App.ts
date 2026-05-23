@@ -15,6 +15,7 @@ import { COST } from "../sim/commands";
 import { Biome, TerrainType, Zone } from "../sim/layers";
 import { buildingDef } from "../sim/buildings";
 import { UIApp } from "../ui/UIApp";
+import type { OverlayChoice } from "../ui/components/OverlayBar";
 import { toolForKey } from "../ui/components/ToolPalette";
 import type { TileInfoRow } from "../ui/components/TileInspector";
 import { SaveSystem } from "../save/SaveSystem";
@@ -98,6 +99,8 @@ export class App {
       onSelectTool: (tool) => {
         this.tools.activeTool = tool;
         if (tool !== "inspect") this.ui.hideTileInfo();
+        const overlay = overlayForTool(tool);
+        if (overlay) this.ui.setOverlayMode(overlay);
         this.sfx.click();
       },
       onOverlayChange: (mode) => {
@@ -611,6 +614,26 @@ function coverageLabel(strength: number): string {
   if (strength < 90) return "Low";
   if (strength < 170) return "Medium";
   return "High";
+}
+
+/** Map a tool to the overlay that helps the player place it, or null. */
+function overlayForTool(tool: Tool): OverlayChoice | null {
+  switch (tool) {
+    case "pipe":
+    case "waterPump":
+      return "water";
+    case "powerLine":
+    case "powerPlant":
+      return "power";
+    case "police":
+      return "police";
+    case "fire":
+      return "fire";
+    case "hospital":
+      return "health";
+    default:
+      return null;
+  }
 }
 
 /** Per-tile cost for a rect tool's readout, or null for tools that charge nothing. */
