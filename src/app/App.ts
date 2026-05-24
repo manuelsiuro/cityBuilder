@@ -79,6 +79,7 @@ export class App {
     // Dev-only inspection handle for the visual feedback loop.
     if (import.meta.env.DEV) {
       (globalThis as unknown as { world: World }).world = world;
+      (globalThis as unknown as { app: App }).app = this;
     }
 
     window.addEventListener("resize", this.onResize);
@@ -108,6 +109,7 @@ export class App {
         this.sfx.click();
       },
       onSystemAction: (action) => this.handleSystemAction(action),
+      onRotate: (dir) => renderer.isoCamera.rotate(dir),
       onNewCity: (settings) => this.beginGame(settings),
       onLoadSlot: (slot) => this.loadGame(slot),
       onSaveToSlot: (slot, name) => this.saveToSlot(slot, name),
@@ -264,6 +266,7 @@ export class App {
           tile: this.hoverTile,
         });
         this.ui.updateMinimap(world.city, dtMs);
+        this.ui.updateCompass(renderer.isoCamera.getYaw());
         renderer.updateCars(world.cars, world.city, alpha);
         renderer.updateServiceVehicles(world.serviceVehicles, world.city, alpha);
         renderer.updateIncidents(world.incidents, world.city);

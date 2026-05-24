@@ -7,6 +7,7 @@ import { BudgetBar } from "./components/BudgetBar";
 import { StatusPanel, type StatusInfo } from "./components/StatusPanel";
 import { SystemBar, type SystemAction, type SystemIcons } from "./components/SystemBar";
 import { Minimap } from "./components/Minimap";
+import { RotateControls } from "./components/RotateControls";
 import { SaveLoadPanel } from "./components/SaveLoadPanel";
 import type { SlotMeta } from "../save/SaveSystem";
 import { Notifications } from "./components/Notifications";
@@ -23,6 +24,8 @@ export interface UICallbacks {
   onSelectTool: (tool: Tool) => void;
   onOverlayChange: (mode: OverlayChoice) => void;
   onSystemAction: (action: SystemAction) => void;
+  /** Rotate the camera by a quarter turn; `dir` is +1 (clockwise) or -1. */
+  onRotate: (dir: number) => void;
   /** New City requested from the main menu, with chosen map settings. */
   onNewCity: (settings: MapSettings) => void;
   /** Load a saved slot into a fresh world (main menu or in-game panel). */
@@ -55,6 +58,7 @@ export class UIApp {
   private status?: StatusPanel;
   private system?: SystemBar;
   private minimap?: Minimap;
+  private rotateControls?: RotateControls;
   private notifications?: Notifications;
   private selectionReadout?: SelectionReadout;
   private inspector?: TileInspector;
@@ -86,6 +90,7 @@ export class UIApp {
     this.onOverlayChange = cb.onOverlayChange;
     this.overlay = new OverlayBar(cb.onOverlayChange);
     this.system = new SystemBar(cb.onSystemAction, await loadSystemIcons());
+    this.rotateControls = new RotateControls(cb.onRotate);
     this.rci = new RciWidget();
     this.budget = new BudgetBar(await loadOptionalTexture("coin"));
     this.status = new StatusPanel();
@@ -112,6 +117,7 @@ export class UIApp {
       this.palette.container,
       this.overlay.container,
       this.system.container,
+      this.rotateControls.container,
       this.rci.container,
       this.budget.container,
       this.status.container,
@@ -175,6 +181,7 @@ export class UIApp {
       this.palette?.containsPoint(x, y) === true ||
       this.overlay?.hitTest(x, y) === true ||
       this.system?.hitTest(x, y) === true ||
+      this.rotateControls?.hitTest(x, y) === true ||
       this.inspector?.hitTest(x, y) === true
     );
   }
@@ -204,6 +211,7 @@ export class UIApp {
     if (this.radio?.handleTap(x, y)) return true;
     if (this.palette?.handleTap(x, y)) return true;
     if (this.overlay?.handleTap(x, y)) return true;
+    if (this.rotateControls?.activate(x, y)) return true;
     return this.system?.activate(x, y) ?? false;
   }
 
@@ -266,6 +274,11 @@ export class UIApp {
     this.minimap?.update(city, dtMs);
   }
 
+  /** Sync the minimap compass needle with the current camera yaw (radians). */
+  updateCompass(yaw: number): void {
+    this.minimap?.setHeading(yaw);
+  }
+
   /** Capture the minimap as a base64 PNG, for embedding in a save file. */
   captureMinimap(city: CityData): string | undefined {
     return this.minimap?.snapshot(city);
@@ -312,6 +325,7 @@ export class UIApp {
     this.budget?.layout(width);
     this.status?.layout();
     this.minimap?.layout(width, height);
+    this.rotateControls?.layout(width, height);
     this.notifications?.layout(width);
     this.selectionReadout?.layout(width);
     this.inspector?.layout(width, height);

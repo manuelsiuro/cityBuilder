@@ -1,4 +1,4 @@
-import { Container, Graphics, Sprite, Texture } from "pixi.js";
+import { Container, Graphics, Sprite, Text, Texture } from "pixi.js";
 import type { CityData } from "../../sim/CityData";
 import { TerrainType, Zone } from "../../sim/layers";
 import { BUILDING } from "../../sim/buildings";
@@ -22,6 +22,10 @@ export class Minimap {
   private readonly img: ImageData;
   private readonly texture: Texture;
   private accum = REDRAW_MS;
+  private readonly compass = new Container();
+  private readonly compassNeedle = new Container();
+  private readonly sprite: Sprite;
+  private lastHeading = Number.NaN;
 
   constructor(width: number, height: number) {
     this.canvas = document.createElement("canvas");
@@ -31,17 +35,77 @@ export class Minimap {
     this.img = this.ctx2d.createImageData(width, height);
     this.texture = Texture.from(this.canvas);
 
-    const sprite = new Sprite(this.texture);
-    sprite.width = VIEW;
-    sprite.height = VIEW;
-    sprite.position.set(FRAME, FRAME);
+    this.sprite = new Sprite(this.texture);
+    this.sprite.width = VIEW;
+    this.sprite.height = VIEW;
+    this.sprite.anchor.set(0.5);
+    this.sprite.position.set(FRAME + VIEW / 2, FRAME + VIEW / 2);
 
     const bg = new Graphics()
       .roundRect(0, 0, VIEW + FRAME * 2, VIEW + FRAME * 2, 8)
       .fill({ color: 0x161a20, alpha: 0.9 })
       .stroke({ width: 1, color: 0x39414d });
 
-    this.container.addChild(bg, sprite);
+    // Mask: clip the rotating bitmap to the frame's inner rounded rect so the
+    // corners can't poke outside the border during the rotation tween.
+    const mask = new Graphics()
+      .roundRect(FRAME, FRAME, VIEW, VIEW, 6)
+      .fill({ color: 0xffffff });
+    this.sprite.mask = mask;
+
+    this.buildCompass();
+    this.container.addChild(bg, mask, this.sprite, this.compass);
+  }
+
+  private buildCompass(): void {
+    const r = 12;
+    const disc = new Graphics()
+      .circle(0, 0, r)
+      .fill({ color: 0x0e1116, alpha: 0.85 })
+      .stroke({ width: 1, color: 0x4a5260 });
+    const needle = new Graphics()
+      .moveTo(0, -r + 2)
+      .lineTo(3, 2)
+      .lineTo(-3, 2)
+      .closePath()
+      .fill({ color: 0xd94a4a })
+      .moveTo(0, r - 2)
+      .lineTo(3, -2)
+      .lineTo(-3, -2)
+      .closePath()
+      .fill({ color: 0xc7cdd6 });
+    this.compassNeedle.addChild(needle);
+
+    const label = new Text({
+      text: "N",
+      style: {
+        fill: 0xe6ecf3,
+        fontSize: 9,
+        fontFamily: "ui-sans-serif, system-ui, sans-serif",
+        fontWeight: "700",
+      },
+    });
+    label.anchor.set(0.5, 1);
+    label.position.set(0, -r - 1);
+
+    this.compass.addChild(disc, this.compassNeedle, label);
+    this.compass.position.set(FRAME + r + 2, FRAME + r + 2);
+  }
+
+  /**
+   * Rotate the minimap content and compass needle to match the camera yaw
+   * (radians). The frame, disc, and "N" label stay axis-aligned; the bitmap and
+   * needle share a rotation frame so the needle always points to world-north on
+   * the rotated map.
+   */
+  setHeading(yaw: number): void {
+    if (Math.abs(yaw - this.lastHeading) < 1e-3) return;
+    this.lastHeading = yaw;
+    // Default camera yaw is π/4; at home rotation = 0 so the minimap looks
+    // identical to the pre-rotation behavior.
+    const rot = -(yaw - Math.PI / 4);
+    this.sprite.rotation = rot;
+    this.compassNeedle.rotation = rot;
   }
 
   layout(screenW: number, screenH: number): void {

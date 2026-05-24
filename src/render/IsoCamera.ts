@@ -68,6 +68,11 @@ export class IsoCamera {
     this.targetYaw = Math.PI / 4 + this.rotationStep * (Math.PI / 2);
   }
 
+  /** Tweened yaw in radians — useful for keeping a HUD compass in sync. */
+  getYaw(): number {
+    return this.currentYaw;
+  }
+
   /** Advance the rotation tween and reposition the camera. Call every frame. */
   update(dtMs: number): void {
     const t = Math.min(1, (dtMs / 1000) * ROT_LERP);
