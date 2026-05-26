@@ -17,7 +17,11 @@ import { buildingDef } from "../sim/buildings";
 import { UIApp } from "../ui/UIApp";
 import type { OverlayChoice } from "../ui/components/OverlayBar";
 import { toolForKey } from "../ui/components/ToolPalette";
-import type { TileInfoRow } from "../ui/components/TileInspector";
+import type {
+  TileInfoRow,
+  TileInfoSection,
+  TileTone,
+} from "../ui/components/TileInspector";
 import { SaveSystem } from "../save/SaveSystem";
 import type { SaveFile } from "../save/schema";
 import { Sfx } from "../engine/Sfx";
@@ -524,37 +528,67 @@ export class App {
   private showTileDetails(tile: { x: number; y: number }): void {
     const c = this.ctx.world.city;
     const i = c.grid.index(tile.x, tile.y);
-    const yes = 0x6fcf7f;
-    const no = 0xc0606a;
-    const rows: TileInfoRow[] = [
-      { label: "Terrain", value: TERRAIN_NAME[c.terrainType[i]] ?? "—" },
-      { label: "Biome", value: BIOME_NAME[c.biome[i]] ?? "—" },
-      { label: "Elevation", value: String(c.elevation[i]) },
+
+    const location: TileInfoRow[] = [
+      { kind: "text", icon: "terrain", label: "Terrain",
+        value: TERRAIN_NAME[c.terrainType[i]] ?? "—" },
+      { kind: "text", icon: "biome", label: "Biome",
+        value: BIOME_NAME[c.biome[i]] ?? "—" },
+      { kind: "text", icon: "elevation", label: "Elevation",
+        value: String(c.elevation[i]) },
     ];
+
+    const structure: TileInfoRow[] = [];
     if (c.buildingId[i] !== 0) {
-      rows.push({ label: "Building", value: buildingDef(c.buildingId[i]).name });
+      structure.push({ kind: "text", icon: "building", label: "Building",
+        value: buildingDef(c.buildingId[i]).name });
     } else if (c.zone[i] !== Zone.None) {
-      rows.push({ label: "Zone", value: ZONE_NAME[c.zone[i]] ?? "—" });
-      rows.push({
-        label: "Development",
+      structure.push({ kind: "text", icon: "zone", label: "Zone",
+        value: ZONE_NAME[c.zone[i]] ?? "—" });
+      structure.push({ kind: "text", icon: "building", label: "Development",
         value: c.buildLevel[i] > 0 ? `Level ${c.buildLevel[i]}` : "Vacant",
-      });
+        tone: c.buildLevel[i] > 0 ? "good" : "neutral" });
     } else {
-      rows.push({ label: "Surface", value: c.road[i] ? "Road" : "Unzoned" });
+      structure.push({ kind: "text", icon: "surface", label: "Surface",
+        value: c.road[i] ? "Road" : "Unzoned" });
     }
-    rows.push(
-      { label: "Power", value: c.powered[i] ? "Connected" : "None",
-        accent: c.powered[i] ? yes : no },
-      { label: "Water", value: c.watered[i] ? "Connected" : "None",
-        accent: c.watered[i] ? yes : no },
-      { label: "Land value", value: String(c.landValue[i]) },
-      { label: "Pollution", value: String(c.pollution[i]),
-        accent: c.pollution[i] > 80 ? no : undefined },
-      { label: "Police", value: coverageLabel(c.policeCoverage[i]) },
-      { label: "Fire cover", value: coverageLabel(c.fireCoverage[i]) },
-      { label: "Health", value: coverageLabel(c.healthCoverage[i]) },
-    );
-    this.ui.showTileInfo({ title: `Tile ${tile.x}, ${tile.y}`, rows });
+
+    const utilities: TileInfoRow[] = [
+      { kind: "pill", icon: "power", label: "Power",
+        text: c.powered[i] ? "Connected" : "None",
+        tone: c.powered[i] ? "good" : "bad" },
+      { kind: "pill", icon: "water", label: "Water",
+        text: c.watered[i] ? "Connected" : "None",
+        tone: c.watered[i] ? "good" : "bad" },
+    ];
+
+    const stats: TileInfoRow[] = [
+      { kind: "bar", icon: "land", label: "Land value",
+        value: c.landValue[i], max: 255, tone: "neutral" },
+      { kind: "bar", icon: "pollution", label: "Pollution",
+        value: c.pollution[i], max: 255, tone: pollutionTone(c.pollution[i]) },
+    ];
+
+    const coverage: TileInfoRow[] = [
+      { kind: "pill", icon: "police", label: "Police",
+        text: coverageLabel(c.policeCoverage[i]),
+        tone: coverageTone(c.policeCoverage[i]) },
+      { kind: "pill", icon: "fire", label: "Fire cover",
+        text: coverageLabel(c.fireCoverage[i]),
+        tone: coverageTone(c.fireCoverage[i]) },
+      { kind: "pill", icon: "health", label: "Health",
+        text: coverageLabel(c.healthCoverage[i]),
+        tone: coverageTone(c.healthCoverage[i]) },
+    ];
+
+    const sections: TileInfoSection[] = [
+      { title: "Location", rows: location },
+      { title: "Structure", rows: structure },
+      { title: "Utilities", rows: utilities },
+      { title: "Stats", rows: stats },
+      { title: "Coverage", rows: coverage },
+    ];
+    this.ui.showTileInfo({ title: `Tile ${tile.x}, ${tile.y}`, sections });
   }
 
   /**
@@ -625,6 +659,21 @@ function coverageLabel(strength: number): string {
   if (strength < 90) return "Low";
   if (strength < 170) return "Medium";
   return "High";
+}
+
+/** Map a 0–255 coverage strength to a tone for inspector pills. */
+function coverageTone(strength: number): TileTone {
+  if (strength === 0) return "neutral";
+  if (strength < 90) return "warn";
+  if (strength < 170) return "neutral";
+  return "good";
+}
+
+/** Map a 0–255 pollution reading to a tone for the inspector bar. */
+function pollutionTone(value: number): TileTone {
+  if (value > 80) return "bad";
+  if (value > 40) return "warn";
+  return "neutral";
 }
 
 /** Map a tool to the overlay that helps the player place it, or null. */
