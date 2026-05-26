@@ -3,12 +3,12 @@ import type { CityData } from "../sim/CityData";
 import { Biome, TerrainType } from "../sim/layers";
 import {
   BASE_Y,
-  ELEV_STEP,
   TILE,
   WATER_Y,
   hashTile,
   tileCornerX,
   tileCornerZ,
+  tileCornerYs,
 } from "./constants";
 
 /**
@@ -48,10 +48,6 @@ export class TerrainMesh {
 }
 
 const _color = new THREE.Color();
-
-function tileTopY(city: CityData, i: number): number {
-  return city.terrainType[i] === TerrainType.Water ? WATER_Y : city.elevation[i] * ELEV_STEP;
-}
 
 /** Base ground colour per biome (water is coloured separately). */
 const BIOME_COLOR: Record<Biome, number> = {
@@ -122,10 +118,16 @@ function buildGeometry(city: CityData): THREE.BufferGeometry {
 
   const wall = new THREE.Color();
 
+  // Water tiles stay flat at WATER_Y; only land uses the corner-averaged Ys
+  // (which smooth around road tiles).
   for (let ty = 0; ty < grid.height; ty++) {
     for (let tx = 0; tx < grid.width; tx++) {
       const i = grid.index(tx, ty);
-      const h = tileTopY(city, i);
+      const isWater = city.terrainType[i] === TerrainType.Water;
+      const corners = isWater
+        ? ([WATER_Y, WATER_Y, WATER_Y, WATER_Y] as [number, number, number, number])
+        : tileCornerYs(city, tx, ty);
+      const [yNW, yNE, ySW, ySE] = corners;
       const x0 = tileCornerX(tx, grid);
       const x1 = x0 + TILE;
       const z0 = tileCornerZ(ty, grid);
@@ -133,31 +135,37 @@ function buildGeometry(city: CityData): THREE.BufferGeometry {
 
       tileColor(city, i, _color);
 
-      // Flat top quad (normal +Y).
-      pushTri(x0, h, z0, x0, h, z1, x1, h, z1, _color);
-      pushTri(x0, h, z0, x1, h, z1, x1, h, z0, _color);
+      // Top quad — possibly sloped via per-corner Ys.
+      pushTri(x0, yNW, z0, x0, ySW, z1, x1, ySE, z1, _color);
+      pushTri(x0, yNW, z0, x1, ySE, z1, x1, yNE, z0, _color);
 
-      // Cliff walls toward any lower neighbour (or the map edge).
+      // Cliff/ramp walls toward each neighbour. Each wall is a quad between
+      // this tile's two corner Ys at the shared edge and the neighbour's two
+      // corner Ys at the same edge. Skip when both pairs match.
       wall.copy(_color).multiplyScalar(0.62);
-      const east = neighborTopY(city, tx + 1, ty);
-      if (h - east > 1e-4) {
-        pushTri(x1, east, z0, x1, h, z0, x1, h, z1, wall);
-        pushTri(x1, east, z0, x1, h, z1, x1, east, z1, wall);
+      const nbrEast = neighborCorners(city, tx + 1, ty);
+      // East edge: my NE (z0) & SE (z1) vs neighbour NW & SW.
+      if (yNE - nbrEast[0] > 1e-4 || ySE - nbrEast[2] > 1e-4) {
+        pushTri(x1, nbrEast[0], z0, x1, yNE, z0, x1, ySE, z1, wall);
+        pushTri(x1, nbrEast[0], z0, x1, ySE, z1, x1, nbrEast[2], z1, wall);
       }
-      const west = neighborTopY(city, tx - 1, ty);
-      if (h - west > 1e-4) {
-        pushTri(x0, west, z1, x0, h, z1, x0, h, z0, wall);
-        pushTri(x0, west, z1, x0, h, z0, x0, west, z0, wall);
+      const nbrWest = neighborCorners(city, tx - 1, ty);
+      // West edge: my NW (z0) & SW (z1) vs neighbour NE & SE.
+      if (yNW - nbrWest[1] > 1e-4 || ySW - nbrWest[3] > 1e-4) {
+        pushTri(x0, nbrWest[3], z1, x0, ySW, z1, x0, yNW, z0, wall);
+        pushTri(x0, nbrWest[3], z1, x0, yNW, z0, x0, nbrWest[1], z0, wall);
       }
-      const south = neighborTopY(city, tx, ty + 1);
-      if (h - south > 1e-4) {
-        pushTri(x1, south, z1, x1, h, z1, x0, h, z1, wall);
-        pushTri(x1, south, z1, x0, h, z1, x0, south, z1, wall);
+      const nbrSouth = neighborCorners(city, tx, ty + 1);
+      // South edge: my SW (x0) & SE (x1) vs neighbour NW & NE.
+      if (ySW - nbrSouth[0] > 1e-4 || ySE - nbrSouth[1] > 1e-4) {
+        pushTri(x1, nbrSouth[1], z1, x1, ySE, z1, x0, ySW, z1, wall);
+        pushTri(x1, nbrSouth[1], z1, x0, ySW, z1, x0, nbrSouth[0], z1, wall);
       }
-      const north = neighborTopY(city, tx, ty - 1);
-      if (h - north > 1e-4) {
-        pushTri(x0, north, z0, x0, h, z0, x1, h, z0, wall);
-        pushTri(x0, north, z0, x1, h, z0, x1, north, z0, wall);
+      const nbrNorth = neighborCorners(city, tx, ty - 1);
+      // North edge: my NW (x0) & NE (x1) vs neighbour SW & SE.
+      if (yNW - nbrNorth[2] > 1e-4 || yNE - nbrNorth[3] > 1e-4) {
+        pushTri(x0, nbrNorth[2], z0, x0, yNW, z0, x1, yNE, z0, wall);
+        pushTri(x0, nbrNorth[2], z0, x1, yNE, z0, x1, nbrNorth[3], z0, wall);
       }
     }
   }
@@ -169,8 +177,19 @@ function buildGeometry(city: CityData): THREE.BufferGeometry {
   return geo;
 }
 
-/** Top Y of a neighbour tile, or the plinth base when out of bounds. */
-function neighborTopY(city: CityData, x: number, y: number): number {
-  if (!city.grid.inBounds(x, y)) return BASE_Y;
-  return tileTopY(city, city.grid.index(x, y));
+/**
+ * 4 corner Ys of a neighbour tile (NW, NE, SW, SE), or BASE_Y at all corners
+ * when the neighbour is off-map (the plinth wall drops to BASE_Y).
+ */
+function neighborCorners(
+  city: CityData,
+  tx: number,
+  ty: number,
+): [number, number, number, number] {
+  if (!city.grid.inBounds(tx, ty)) return [BASE_Y, BASE_Y, BASE_Y, BASE_Y];
+  const i = city.grid.index(tx, ty);
+  if (city.terrainType[i] === TerrainType.Water) {
+    return [WATER_Y, WATER_Y, WATER_Y, WATER_Y];
+  }
+  return tileCornerYs(city, tx, ty);
 }

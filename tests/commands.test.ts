@@ -166,6 +166,20 @@ describe("applyCommand", () => {
     expect(applyCommand(city, { type: "bulldoze", x: 6, y: 6 })).toBe(CmdResult.Blocked);
   });
 
+  it("rejects a road tile adjacent to a road at >1 tier elevation difference", () => {
+    const city = new CityData(8, 8);
+    // Existing road tile at (3, 3) on tier 0.
+    expect(applyCommand(city, { type: "buildRoad", x: 3, y: 3 })).toBe(CmdResult.Ok);
+    // Raise (4, 3) to tier 2.
+    city.elevation[city.grid.index(4, 3)] = 2;
+    // Now placing a road on (4, 3) would create a 2-tier step against (3, 3).
+    expect(applyCommand(city, { type: "buildRoad", x: 4, y: 3 })).toBe(CmdResult.TooSteep);
+    expect(city.road[city.grid.index(4, 3)]).toBe(0);
+    // A 1-tier step is allowed.
+    city.elevation[city.grid.index(4, 3)] = 1;
+    expect(applyCommand(city, { type: "buildRoad", x: 4, y: 3 })).toBe(CmdResult.Ok);
+  });
+
   it("places service buildings, charges their cost, and marks coverage dirty", () => {
     const city = new CityData(8, 8);
     const before = city.funds;

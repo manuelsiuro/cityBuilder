@@ -127,13 +127,17 @@ export class World {
     this._tickCount++;
 
     // Apply queued player intents, then run the system pipeline. A drag that
-    // can't be afforded surfaces one throttled toast — other rejections (e.g.
-    // painting a road over an existing one) are normal and stay silent.
+    // can't be afforded or is too steep surfaces one throttled toast — other
+    // rejections (e.g. painting a road over an existing one) stay silent.
     let rejectedForFunds = false;
+    let rejectedTooSteep = false;
     for (const cmd of this.commands.drain()) {
-      if (applyCommand(this.city, cmd) === CmdResult.NoFunds) rejectedForFunds = true;
+      const res = applyCommand(this.city, cmd);
+      if (res === CmdResult.NoFunds) rejectedForFunds = true;
+      else if (res === CmdResult.TooSteep) rejectedTooSteep = true;
     }
     if (rejectedForFunds) this.notice("warn", "Not enough funds");
+    if (rejectedTooSteep) this.notice("warn", "Road too steep — grade the terrain first");
 
     // Layers with no dedicated system just notify the renderer and clear.
     if (this.city.isDirty(Dirty.Zone)) {

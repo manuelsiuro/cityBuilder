@@ -2,6 +2,13 @@ import type { CityData } from "./CityData";
 import { Dirty, MAX_ELEVATION, TerrainType, Zone } from "./layers";
 import { BUILDING, buildingDef } from "./buildings";
 
+const CARDINALS: ReadonlyArray<readonly [number, number]> = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+];
+
 /**
  * Player intents. The single `outside → sim` vocabulary: `input/` and `ui/`
  * push these onto `World.commands`; `World.tick()` drains and applies them at
@@ -43,6 +50,8 @@ export const CmdResult = {
   Blocked: 4,
   /** Terrain is already at its highest / lowest tier. */
   MaxElevation: 5,
+  /** A road can't sit next to another road that differs by more than one tier. */
+  TooSteep: 6,
 } as const;
 
 export type CommandResult = (typeof CmdResult)[keyof typeof CmdResult];
@@ -57,15 +66,27 @@ export function applyCommand(city: CityData, cmd: Command): CommandResult {
   const isWater = city.terrainType[i] === TerrainType.Water;
 
   switch (cmd.type) {
-    case "buildRoad":
+    case "buildRoad": {
       if (isWater) return CmdResult.Water;
       if (city.road[i]) return CmdResult.Occupied;
       if (city.funds < COST.buildRoad) return CmdResult.NoFunds;
+      // Reject placements that would create a >1-tier elevation step against
+      // an adjacent road, so road slopes never exceed atan(ELEV_STEP) ≈ 23°.
+      const ownE = city.elevation[i];
+      for (const [dx, dy] of CARDINALS) {
+        const nx = cmd.x + dx;
+        const ny = cmd.y + dy;
+        if (!city.grid.inBounds(nx, ny)) continue;
+        const ni = city.grid.index(nx, ny);
+        if (city.road[ni] === 0) continue;
+        if (Math.abs(city.elevation[ni] - ownE) > 1) return CmdResult.TooSteep;
+      }
       city.funds -= COST.buildRoad;
       city.road[i] = 1;
       city.trees[i] = 0; // construction clears the tile's trees
       city.markDirty(Dirty.Road);
       return CmdResult.Ok;
+    }
 
     case "buildPowerLine":
       if (isWater) return CmdResult.Water;

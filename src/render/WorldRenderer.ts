@@ -200,6 +200,9 @@ export class WorldRenderer {
   }
 
   rebuildRoads(city: CityData): void {
+    // Terrain quads under road tiles use corner-averaged Ys, so the terrain
+    // mesh must be rebuilt whenever the road layer changes.
+    this.terrain?.rebuild(city);
     this.roads?.rebuild(city);
     this.trees?.rebuild(city);
   }
