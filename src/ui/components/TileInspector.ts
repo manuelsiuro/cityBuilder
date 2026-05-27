@@ -12,6 +12,8 @@ const LABEL_X = PAD + ICON_GUTTER;
 const VALUE_X = W - PAD;
 const MARGIN = 12;
 const CLOSE = 22;
+/** Top offset that clears the SystemBar (top: 86, height: 36) sitting above us. */
+const TOP_OFFSET = 86 + 36 + 12;
 
 const FONT = "ui-sans-serif, system-ui, sans-serif";
 
@@ -77,7 +79,6 @@ export class TileInspector {
   private readonly sectionPool: SectionSlot[] = [];
   private readonly rowPool: RowSlot[] = [];
   private screenW = 0;
-  private screenH = 0;
   private panelH = 0;
 
   constructor() {
@@ -146,9 +147,8 @@ export class TileInspector {
     return this.container.visible;
   }
 
-  layout(screenW: number, screenH: number): void {
+  layout(screenW: number, _screenH: number): void {
     this.screenW = screenW;
-    this.screenH = screenH;
     if (this.container.visible) this.reposition();
   }
 
@@ -294,7 +294,7 @@ export class TileInspector {
   private reposition(): void {
     this.container.position.set(
       Math.round(this.screenW - W - MARGIN),
-      Math.round((this.screenH - this.panelH) / 2),
+      TOP_OFFSET,
     );
   }
 
