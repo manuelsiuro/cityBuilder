@@ -1,6 +1,6 @@
 import { Container, Graphics, Sprite, Text, type Texture } from "pixi.js";
 
-export type SystemAction = "new" | "save" | "load";
+export type SystemAction = "new" | "save" | "load" | "settings";
 
 /** Icon textures keyed by action; a missing entry falls back to text only. */
 export type SystemIcons = Partial<Record<SystemAction, Texture>>;
@@ -17,6 +17,7 @@ const DEFS: { id: SystemAction; label: string }[] = [
   { id: "new", label: "New" },
   { id: "save", label: "Save" },
   { id: "load", label: "Load" },
+  { id: "settings", label: "Settings" },
 ];
 
 interface SysButton {

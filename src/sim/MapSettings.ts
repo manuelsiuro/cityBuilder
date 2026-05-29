@@ -24,7 +24,59 @@ export interface MapSettings {
   treeDensity: number;
   /** When true, skip procedural hills/water — generate flat buildable grassland. */
   flat: boolean;
+  /** Which disasters are enabled and how often they fire. */
+  disasters: DisasterSettings;
 }
+
+/** A disaster the simulation can roll for or the player can trigger. */
+export type DisasterId =
+  | "fire"
+  | "earthquake"
+  | "tornado"
+  | "meteor"
+  | "lightning"
+  | "tsunami"
+  | "riot"
+  | "planeCrash";
+
+export const DISASTER_IDS: readonly DisasterId[] = [
+  "fire", "earthquake", "tornado", "meteor",
+  "lightning", "tsunami", "riot", "planeCrash",
+];
+
+export const DISASTER_LABELS: Record<DisasterId, string> = {
+  fire: "Fires",
+  earthquake: "Earthquakes",
+  tornado: "Tornadoes",
+  meteor: "Meteor strikes",
+  lightning: "Lightning storms",
+  tsunami: "Tsunamis",
+  riot: "Riots",
+  planeCrash: "Plane crashes",
+};
+
+export interface DisasterSettings {
+  enabled: Record<DisasterId, boolean>;
+  /** Global multiplier applied to every random per-tick chance. */
+  frequency: number;
+}
+
+/** Allowed frequency steps, shown as a segmented control in the UI. */
+export const FREQUENCY_STEPS: readonly number[] = [0.25, 1, 2, 4];
+
+export const DEFAULT_DISASTER_SETTINGS: DisasterSettings = {
+  enabled: {
+    fire: true,
+    earthquake: true,
+    tornado: true,
+    meteor: true,
+    lightning: true,
+    tsunami: true,
+    riot: true,
+    planeCrash: true,
+  },
+  frequency: 1,
+};
 
 export const DEFAULT_MAP_SETTINGS: MapSettings = {
   seed: 1,
@@ -33,4 +85,20 @@ export const DEFAULT_MAP_SETTINGS: MapSettings = {
   roughness: 0.5,
   treeDensity: 0.4,
   flat: false,
+  disasters: DEFAULT_DISASTER_SETTINGS,
 };
+
+/** Fill in any disaster-settings fields missing from an older save. */
+export function normalizeDisasterSettings(
+  s: Partial<DisasterSettings> | undefined,
+): DisasterSettings {
+  const enabled = { ...DEFAULT_DISASTER_SETTINGS.enabled, ...(s?.enabled ?? {}) };
+  const freq = s?.frequency;
+  return {
+    enabled,
+    frequency:
+      typeof freq === "number" && Number.isFinite(freq) && freq >= 0
+        ? freq
+        : DEFAULT_DISASTER_SETTINGS.frequency,
+  };
+}

@@ -48,6 +48,10 @@ export function serializeWorld(world: World, name = "City", thumbnail?: string):
       taxRateC: c.taxRateC,
       taxRateI: c.taxRateI,
     },
+    disasters: {
+      enabled: { ...world.disasterSettings.enabled },
+      frequency: world.disasterSettings.frequency,
+    },
   };
 }
 

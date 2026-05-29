@@ -1,6 +1,7 @@
 import type { CityData } from "./CityData";
 import { Dirty, MAX_ELEVATION, TerrainType, Zone } from "./layers";
 import { BUILDING, buildingDef } from "./buildings";
+import type { DisasterId } from "./MapSettings";
 
 const CARDINALS: ReadonlyArray<readonly [number, number]> = [
   [1, 0],
@@ -22,7 +23,13 @@ export type Command =
   | { type: "placeBuilding"; x: number; y: number; building: number }
   | { type: "bulldoze"; x: number; y: number }
   | { type: "raiseTerrain"; x: number; y: number }
-  | { type: "lowerTerrain"; x: number; y: number };
+  | { type: "lowerTerrain"; x: number; y: number }
+  /**
+   * God-mode: fire a named disaster on the next tick. `x`/`y` are optional
+   * hints used by disasters that take a target (currently advisory only — the
+   * disaster system picks a sensible target if absent).
+   */
+  | { type: "triggerDisaster"; id: DisasterId; x?: number; y?: number };
 
 /** Up-front construction cost per command. */
 export const COST = {
@@ -61,6 +68,9 @@ export type CommandResult = (typeof CmdResult)[keyof typeof CmdResult];
  * start. Returns `CmdResult.Ok` on success or a rejection reason otherwise.
  */
 export function applyCommand(city: CityData, cmd: Command): CommandResult {
+  // Trigger-disaster commands are handled by `World` directly (they need the
+  // DisasterSystem instance and the current tick) — never via this function.
+  if (cmd.type === "triggerDisaster") return CmdResult.Ok;
   if (!city.grid.inBounds(cmd.x, cmd.y)) return CmdResult.Blocked;
   const i = city.grid.index(cmd.x, cmd.y);
   const isWater = city.terrainType[i] === TerrainType.Water;

@@ -28,6 +28,18 @@ export type GameEventMap = {
   "notice": { level: "info" | "warn"; message: string };
   /** Service-building coverage recomputed — renderer refreshes the overlay. */
   "coverage:changed": void;
+  /** A tornado has spawned — renderer plays the funnel animation along the path. */
+  "disaster:tornado": { tiles: number[] };
+  /** A meteor has impacted — renderer plays the falling rock + flash. */
+  "disaster:meteor": { x: number; y: number };
+  /** An earthquake has struck — renderer shakes the camera and cracks the ground. */
+  "disaster:earthquake": { x: number; y: number };
+  /** A tsunami has begun — renderer plays the advancing wavefront. */
+  "disaster:tsunami": { fromX: number; fromY: number };
+  /** A plane has crashed — renderer plays the diving plane + flash. */
+  "disaster:planeCrash": { x: number; y: number };
+  /** A lightning storm dropped bolts on these tiles this tick. */
+  "disaster:lightning": { tiles: number[] };
 };
 
 export type GameEventBus = EventBus<GameEventMap>;

@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import type { CityData } from "../sim/CityData";
+import type { GameEventBus } from "../sim/events";
 import { Zone } from "../sim/layers";
 import { IsoCamera } from "./IsoCamera";
 import { TerrainMesh } from "./TerrainMesh";
@@ -11,6 +12,15 @@ import { UtilityRenderer } from "./UtilityRenderer";
 import { TreeRenderer } from "./TreeRenderer";
 import { TrafficLightRenderer } from "./TrafficLightRenderer";
 import { FireRenderer } from "./FireRenderer";
+import { FloodRenderer } from "./FloodRenderer";
+import { RiotRenderer } from "./RiotRenderer";
+import { TornadoRenderer } from "./TornadoRenderer";
+import { ImpactFlashRenderer } from "./ImpactFlashRenderer";
+import { MeteorRenderer } from "./MeteorRenderer";
+import { PlaneCrashRenderer } from "./PlaneCrashRenderer";
+import { LightningRenderer } from "./LightningRenderer";
+import { EarthquakeRenderer } from "./EarthquakeRenderer";
+import { TsunamiWaveRenderer } from "./TsunamiWaveRenderer";
 import { ServiceVehicleRenderer } from "./ServiceVehicleRenderer";
 import { IncidentMarkerRenderer } from "./IncidentMarkerRenderer";
 import type { Car } from "../sim/systems/TrafficSystem";
@@ -102,6 +112,15 @@ export class WorldRenderer {
   private utilities?: UtilityRenderer;
   private trees?: TreeRenderer;
   private fire?: FireRenderer;
+  private flood?: FloodRenderer;
+  private riots?: RiotRenderer;
+  private tornado?: TornadoRenderer;
+  private impactFlashes?: ImpactFlashRenderer;
+  private meteors?: MeteorRenderer;
+  private planeCrashes?: PlaneCrashRenderer;
+  private lightning?: LightningRenderer;
+  private earthquakes?: EarthquakeRenderer;
+  private tsunamiWaves?: TsunamiWaveRenderer;
   private serviceVehicles?: ServiceVehicleRenderer;
   private incidentMarkers?: IncidentMarkerRenderer;
   private zoneOverlay?: TileOverlay;
@@ -145,8 +164,15 @@ export class WorldRenderer {
   }
 
   /** Build the scene contents for a city. Call once after `World` is created. */
-  buildCity(city: CityData): void {
+  buildCity(city: CityData, events?: GameEventBus): void {
     this.city = city;
+    // The previous city's event subscribers must not outlive their event bus.
+    this.impactFlashes?.dispose();
+    this.meteors?.dispose();
+    this.planeCrashes?.dispose();
+    this.lightning?.dispose();
+    this.earthquakes?.dispose();
+    this.tsunamiWaves?.dispose();
     this.terrain = new TerrainMesh(city);
     this.roads = new RoadInstances(city);
     this.buildings = new BuildingInstances();
@@ -155,6 +181,17 @@ export class WorldRenderer {
     this.utilities = new UtilityRenderer(city);
     this.trees = new TreeRenderer(city);
     this.fire = new FireRenderer(city.grid.size);
+    this.flood = new FloodRenderer(city.grid.size);
+    this.riots = new RiotRenderer(city.grid.size);
+    this.tornado = new TornadoRenderer();
+    if (events) {
+      this.impactFlashes = new ImpactFlashRenderer(events, city);
+      this.meteors = new MeteorRenderer(events, city);
+      this.planeCrashes = new PlaneCrashRenderer(events, city);
+      this.lightning = new LightningRenderer(events, city);
+      this.earthquakes = new EarthquakeRenderer(events, city, this.isoCamera);
+      this.tsunamiWaves = new TsunamiWaveRenderer(events, city);
+    }
     this.serviceVehicles = new ServiceVehicleRenderer(24);
     this.incidentMarkers = new IncidentMarkerRenderer(64);
     this.zoneOverlay = new TileOverlay(city.grid.size, 0.05, 0.5);
@@ -172,8 +209,19 @@ export class WorldRenderer {
       this.utilities.group,
       this.trees.group,
       this.fire.group,
+      this.flood.group,
+      this.riots.group,
+      this.tornado.group,
       this.serviceVehicles.group,
       this.incidentMarkers.group,
+    );
+    if (this.impactFlashes) this.scene.add(this.impactFlashes.group);
+    if (this.meteors) this.scene.add(this.meteors.group);
+    if (this.planeCrashes) this.scene.add(this.planeCrashes.group);
+    if (this.lightning) this.scene.add(this.lightning.group);
+    if (this.earthquakes) this.scene.add(this.earthquakes.group);
+    if (this.tsunamiWaves) this.scene.add(this.tsunamiWaves.group);
+    this.scene.add(
       this.zoneOverlay.mesh,
       this.networkOverlay.mesh,
       this.rectHighlight.mesh,
@@ -257,6 +305,20 @@ export class WorldRenderer {
   /** Re-place flickering fire flames from the current `fire` layer. */
   updateFire(city: CityData): void {
     this.fire?.update(city, performance.now());
+  }
+
+  /** Refresh flood / riot markers, animate the active tornado, and tick flashes. */
+  updateDisasters(city: CityData, tick: number): void {
+    const now = performance.now();
+    this.flood?.update(city);
+    this.riots?.update(city, now);
+    this.tornado?.update(city, tick, now);
+    this.impactFlashes?.update(now);
+    this.meteors?.update(now);
+    this.planeCrashes?.update(now);
+    this.lightning?.update(now);
+    this.earthquakes?.update(now);
+    this.tsunamiWaves?.update(now);
   }
 
   /** Interpolate and re-place emergency-vehicle instances. Call every frame. */
@@ -353,6 +415,15 @@ export class WorldRenderer {
     this.utilities?.dispose();
     this.trees?.dispose();
     this.fire?.dispose();
+    this.flood?.dispose();
+    this.riots?.dispose();
+    this.tornado?.dispose();
+    this.impactFlashes?.dispose();
+    this.meteors?.dispose();
+    this.planeCrashes?.dispose();
+    this.lightning?.dispose();
+    this.earthquakes?.dispose();
+    this.tsunamiWaves?.dispose();
     this.serviceVehicles?.dispose();
     this.incidentMarkers?.dispose();
     this.zoneOverlay?.dispose();

@@ -3,7 +3,13 @@ import { CommandQueue } from "../engine/CommandQueue";
 import { EventBus } from "../engine/EventBus";
 import { CityData } from "./CityData";
 import { generateTerrain } from "./TerrainGen";
-import { DEFAULT_MAP_SETTINGS, MAP_SIZES, type MapSettings } from "./MapSettings";
+import {
+  DEFAULT_MAP_SETTINGS,
+  MAP_SIZES,
+  normalizeDisasterSettings,
+  type DisasterSettings,
+  type MapSettings,
+} from "./MapSettings";
 import { formatDate, tickToDate, type SimDate } from "./Tick";
 import { applyCommand, CmdResult, type Command } from "./commands";
 import type { GameEventMap } from "./events";
@@ -81,7 +87,7 @@ export class World {
     this.powerSystem = new PowerSystem(this.events);
     this.waterSystem = new WaterSystem(this.events);
     this.coverageSystem = new CoverageSystem(this.events);
-    this.disasterSystem = new DisasterSystem(this.random, this.events);
+    this.disasterSystem = new DisasterSystem(this.random, this.events, this.settings.disasters);
     this.incidentSystem = new IncidentSystem(this.random, this.events);
     this.developmentSystem = new DevelopmentSystem(this.random, this.events);
     this.trafficSystem = new TrafficSystem(
@@ -132,6 +138,10 @@ export class World {
     let rejectedForFunds = false;
     let rejectedTooSteep = false;
     for (const cmd of this.commands.drain()) {
+      if (cmd.type === "triggerDisaster") {
+        this.disasterSystem.trigger(cmd.id, this.city, this._tickCount);
+        continue;
+      }
       const res = applyCommand(this.city, cmd);
       if (res === CmdResult.NoFunds) rejectedForFunds = true;
       else if (res === CmdResult.TooSteep) rejectedTooSteep = true;
@@ -214,6 +224,18 @@ export class World {
     this.noticeAt.clear();
     c.fire.fill(0); // fires are transient — a loaded city starts unburnt
     c.crime.fill(0); // incidents are transient too
+    c.flood.fill(0);
+    c.riot.fill(0);
+    c.tornadoPath = null;
+
+    // Disaster settings ride along with the save. Older saves default to all on.
+    this.settings = {
+      ...this.settings,
+      disasters: normalizeDisasterSettings(
+        (file as { disasters?: Partial<DisasterSettings> }).disasters,
+      ),
+    };
+    this.disasterSystem.setSettings(this.settings.disasters);
     this.disasterSystem.clear();
     this.incidentSystem.clear();
     this.dispatchSystem.clear();
@@ -268,6 +290,19 @@ export class World {
       c.clearDirty(Dirty.Utility);
       this.events.emit("utilities:changed", undefined);
     }
+  }
+
+  /**
+   * Live-update the disaster settings. Mutates `this.settings.disasters` and
+   * the running `DisasterSystem`'s settings without restarting the city.
+   */
+  setDisasterSettings(disasters: DisasterSettings): void {
+    this.settings = { ...this.settings, disasters };
+    this.disasterSystem.setSettings(disasters);
+  }
+
+  get disasterSettings(): DisasterSettings {
+    return this.settings.disasters;
   }
 
   get tickCount(): number {

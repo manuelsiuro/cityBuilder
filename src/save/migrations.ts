@@ -4,8 +4,10 @@ import {
   type SaveFileV1,
   type SaveFileV2,
   type SaveFileV3,
+  type SaveFileV4,
 } from "./schema";
 import { Biome, TerrainType } from "../sim/layers";
+import { DEFAULT_DISASTER_SETTINGS } from "../sim/MapSettings";
 
 /**
  * Upgrades an on-disk save to the current schema. Each future version adds a
@@ -25,6 +27,7 @@ export function migrate(raw: unknown): SaveFile {
 
   if (file.version === 1) file = v1ToV2(file as unknown as SaveFileV1);
   if (file.version === 2) file = v2ToV3(file as unknown as SaveFileV2);
+  if (file.version === 3) file = v3ToV4(file as unknown as SaveFileV3);
 
   if (file.version !== CURRENT_VERSION) {
     throw new Error(`unsupported save version ${file.version}`);
@@ -60,4 +63,13 @@ function v1ToV2(file: SaveFileV1): SaveFileV2 {
  */
 function v2ToV3(file: SaveFileV2): SaveFileV3 {
   return { ...file, version: 3 };
+}
+
+/**
+ * v3 → v4: disaster toggles + frequency multiplier added to the save. Old
+ * saves default to "all disasters on, normal frequency" — same as today's
+ * behaviour, so existing cities load unchanged.
+ */
+function v3ToV4(file: SaveFileV3): SaveFileV4 {
+  return { ...file, version: 4, disasters: { ...DEFAULT_DISASTER_SETTINGS } };
 }

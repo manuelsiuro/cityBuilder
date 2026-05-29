@@ -120,6 +120,11 @@ export class App {
       onExportFile: (name) => this.exportSave(name),
       onImportFile: (file) => this.importSave(file),
       listMetas: () => this.save.metas(),
+      getDisasterSettings: () => this.ctx.world.disasterSettings,
+      onChangeDisasterSettings: (next) => this.ctx.world.setDisasterSettings(next),
+      onTriggerDisaster: (id) => {
+        this.ctx.world.commands.push({ type: "triggerDisaster", id });
+      },
     }, this.radio);
     this.ctx.states.transitionTo(this.createMainMenuState());
     this.ctx.loop.start();
@@ -209,7 +214,7 @@ export class App {
     if (import.meta.env.DEV) {
       (globalThis as unknown as { world: World }).world = world;
     }
-    renderer.buildCity(world.city);
+    renderer.buildCity(world.city, world.events);
     this.wireWorldEvents(world);
     this.ui.onGameStart(world.city.grid.width, world.city.grid.height);
     // The HTML #debug pill is a sandbox-only fallback; the PixiJS StatusPanel
@@ -276,6 +281,7 @@ export class App {
         renderer.updateIncidents(world.incidents, world.city);
         renderer.updateTrafficLights(world.tickCount);
         renderer.updateFire(world.city);
+        renderer.updateDisasters(world.city, world.tickCount);
         renderer.update(dtMs);
         renderer.render();
       },
@@ -452,6 +458,10 @@ export class App {
     }
     if (action === "save") {
       this.ui.openSavePanel();
+      return;
+    }
+    if (action === "settings") {
+      this.ui.openSettingsPanel();
       return;
     }
     // load

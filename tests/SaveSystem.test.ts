@@ -28,6 +28,22 @@ describe("save serialization", () => {
     expect(Array.from(b.city.elevation)).toEqual(Array.from(a.city.elevation));
   });
 
+  it("round-trips disaster settings through serialize + restore", () => {
+    const a = new World(777);
+    a.setDisasterSettings({
+      enabled: { ...a.disasterSettings.enabled, tornado: false, meteor: false },
+      frequency: 2,
+    });
+
+    const b = new World(123);
+    b.restore(serializeWorld(a, "Test City"));
+
+    expect(b.disasterSettings.enabled.tornado).toBe(false);
+    expect(b.disasterSettings.enabled.meteor).toBe(false);
+    expect(b.disasterSettings.enabled.fire).toBe(true);
+    expect(b.disasterSettings.frequency).toBe(2);
+  });
+
   it("reset() produces a fresh, empty-of-construction city", () => {
     const w = new World(5);
     w.commands.push({ type: "buildRoad", x: 64, y: 64 });
@@ -74,10 +90,10 @@ describe("migrate", () => {
     expect(migrated.layers.biome.length).toBe(file.layers.elevation.length);
   });
 
-  it("upgrades a v2 save to v3", () => {
+  it("upgrades a v2 save through the migration chain to the current version", () => {
     const file = serializeWorld(new World(1));
     const v2 = { ...file, version: 2, meta: { ...file.meta, thumbnail: undefined } };
-    expect(migrate(v2).version).toBe(3);
+    expect(migrate(v2).version).toBe(CURRENT_VERSION);
   });
 });
 

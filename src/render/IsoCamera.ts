@@ -31,6 +31,11 @@ export class IsoCamera {
   private viewW = 1;
   private viewH = 1;
 
+  // Transient camera-shake state (earthquakes). Pure view jitter — decays out.
+  private shakeMsLeft = 0;
+  private shakeDurMs = 1;
+  private shakeAmp = 0;
+
   // Ground-plane basis for the current yaw, refreshed every update().
   private readonly rightGround = new THREE.Vector3(1, 0, 0);
   private readonly forwardGround = new THREE.Vector3(0, 0, 1);
@@ -73,6 +78,15 @@ export class IsoCamera {
     return this.currentYaw;
   }
 
+  /** Kick off a decaying camera shake — `amplitude` in world units. */
+  shake(durationMs: number, amplitude: number): void {
+    // Don't let a weaker aftershock cut a stronger one short.
+    if (this.shakeMsLeft > 0 && amplitude < this.shakeAmp) return;
+    this.shakeMsLeft = durationMs;
+    this.shakeDurMs = durationMs;
+    this.shakeAmp = amplitude;
+  }
+
   /** Advance the rotation tween and reposition the camera. Call every frame. */
   update(dtMs: number): void {
     const t = Math.min(1, (dtMs / 1000) * ROT_LERP);
@@ -89,6 +103,21 @@ export class IsoCamera {
       this.target.z - this.forwardGround.z * horiz,
     );
     this.camera.up.set(0, 1, 0);
+
+    // Earthquake jitter: translate the whole view by a decaying random offset.
+    if (this.shakeMsLeft > 0) {
+      this.shakeMsLeft = Math.max(0, this.shakeMsLeft - dtMs);
+      const frac = this.shakeMsLeft / this.shakeDurMs;
+      const a = this.shakeAmp * frac * frac; // ease-out
+      const ox = (Math.random() * 2 - 1) * a;
+      const oy = (Math.random() * 2 - 1) * a * 0.4;
+      const oz = (Math.random() * 2 - 1) * a;
+      this.camera.position.x += ox;
+      this.camera.position.y += oy;
+      this.camera.position.z += oz;
+      this.camera.lookAt(this.target.x + ox, this.target.y + oy, this.target.z + oz);
+      return;
+    }
     this.camera.lookAt(this.target);
   }
 

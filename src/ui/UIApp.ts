@@ -9,6 +9,7 @@ import { SystemBar, type SystemAction, type SystemIcons } from "./components/Sys
 import { Minimap } from "./components/Minimap";
 import { RotateControls } from "./components/RotateControls";
 import { SaveLoadPanel } from "./components/SaveLoadPanel";
+import { SettingsPanel } from "./components/SettingsPanel";
 import type { SlotMeta } from "../save/SaveSystem";
 import { Notifications } from "./components/Notifications";
 import { SelectionReadout } from "./components/SelectionReadout";
@@ -18,7 +19,7 @@ import type { RadioService } from "../radio/RadioService";
 import type { Tool } from "../input/ToolController";
 import type { BudgetReport } from "../sim/systems/BudgetSystem";
 import type { CityData } from "../sim/CityData";
-import type { MapSettings } from "../sim/MapSettings";
+import type { DisasterId, DisasterSettings, MapSettings } from "../sim/MapSettings";
 
 export interface UICallbacks {
   onSelectTool: (tool: Tool) => void;
@@ -38,6 +39,12 @@ export interface UICallbacks {
   onImportFile: (file: File) => void;
   /** Slot + metadata for every saved city — drives the save/load UI. */
   listMetas: () => Promise<SlotMeta[]>;
+  /** Read the live `World` disaster settings — drives the in-game panel. */
+  getDisasterSettings: () => DisasterSettings;
+  /** Live-update the `World` disaster settings. */
+  onChangeDisasterSettings: (next: DisasterSettings) => void;
+  /** God-mode: enqueue a `triggerDisaster` command on the current `World`. */
+  onTriggerDisaster: (id: DisasterId) => void;
 }
 
 /**
@@ -66,6 +73,7 @@ export class UIApp {
   private pauseBanner?: Text;
   private menu?: MainMenu;
   private saveLoadPanel?: SaveLoadPanel;
+  private settingsPanel?: SettingsPanel;
 
   async init(cb: UICallbacks, radio: RadioService): Promise<void> {
     const app = new Application();
@@ -145,7 +153,21 @@ export class UIApp {
       () => this.closeSaveLoad(),
     );
 
-    app.stage.addChild(this.hud, this.menu.container, this.saveLoadPanel.container);
+    this.settingsPanel = new SettingsPanel(
+      {
+        getDisasters: cb.getDisasterSettings,
+        onChangeDisasters: cb.onChangeDisasterSettings,
+        onTriggerDisaster: cb.onTriggerDisaster,
+      },
+      () => this.closeSettings(),
+    );
+
+    app.stage.addChild(
+      this.hud,
+      this.menu.container,
+      this.saveLoadPanel.container,
+      this.settingsPanel.container,
+    );
     canvas.style.pointerEvents = "auto"; // the menu needs pointer input
     this.layout();
     window.addEventListener("resize", this.onResize);
@@ -296,9 +318,20 @@ export class UIApp {
     if (this.app) this.app.canvas.style.pointerEvents = "auto";
   }
 
+  /** Open the in-game settings + god-mode panel. */
+  openSettingsPanel(): void {
+    this.settingsPanel?.open();
+    if (this.app) this.app.canvas.style.pointerEvents = "auto";
+  }
+
   private closeSaveLoad(): void {
     this.saveLoadPanel?.close();
     // Hand pointer input back to the world canvas (unless the menu is up).
+    if (this.app && this.hud.visible) this.app.canvas.style.pointerEvents = "none";
+  }
+
+  private closeSettings(): void {
+    this.settingsPanel?.close();
     if (this.app && this.hud.visible) this.app.canvas.style.pointerEvents = "none";
   }
 
@@ -333,6 +366,7 @@ export class UIApp {
     this.pauseBanner?.position.set(width / 2, height / 2 - 40);
     this.menu?.layout(width, height);
     this.saveLoadPanel?.layout(width, height);
+    this.settingsPanel?.layout(width, height);
   }
 
   private onResize = (): void => this.layout();
@@ -367,6 +401,7 @@ const SYSTEM_ICON_FILES: Record<SystemAction, string> = {
   new: "sysNew",
   save: "sysSave",
   load: "sysLoad",
+  settings: "sysSettings",
 };
 
 /** Load the generated system-button glyphs; missing icons fall back to text. */

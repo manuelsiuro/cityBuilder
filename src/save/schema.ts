@@ -1,9 +1,11 @@
+import type { DisasterSettings } from "../sim/MapSettings";
+
 /**
  * Save-file schema. Only the *source-of-truth* layers are stored — per-tick
  * computed layers (powered, watered, land value, pollution, traffic) are
  * recomputed on load, and car agents are respawned.
  */
-export const CURRENT_VERSION = 3;
+export const CURRENT_VERSION = 4;
 
 export interface SaveMeta {
   name: string;
@@ -69,10 +71,16 @@ export interface SaveFileV2 {
   city: SaveCity;
 }
 
-/** Current schema — identical layers to v2; adds the optional `meta.thumbnail`. */
+/** Identical layers to v2; adds the optional `meta.thumbnail`. */
 export interface SaveFileV3 extends Omit<SaveFileV2, "version"> {
   version: 3;
 }
 
+/** Current schema — adds per-city disaster settings (toggles + frequency). */
+export interface SaveFileV4 extends Omit<SaveFileV3, "version"> {
+  version: 4;
+  disasters: DisasterSettings;
+}
+
 /** The current save-file shape. Widen to a union as new versions are added. */
-export type SaveFile = SaveFileV3;
+export type SaveFile = SaveFileV4;

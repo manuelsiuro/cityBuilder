@@ -2,15 +2,18 @@ import { Container, Graphics, Text, type FederatedPointerEvent } from "pixi.js";
 import {
   DEFAULT_MAP_SETTINGS,
   MAP_SIZES,
+  type DisasterSettings,
   type MapSettings,
   type MapSizeId,
 } from "../../sim/MapSettings";
 import type { SlotMeta } from "../../save/SaveSystem";
 import { SaveSlotList } from "./SaveSlotList";
+import { DisasterSettingsView } from "./DisasterSettingsView";
 
 const FONT = "ui-sans-serif, system-ui, sans-serif";
 const PANEL_W = 480;
-const PANEL_H = 580;
+const PANEL_H_DEFAULT = 620;
+const PANEL_H_DISASTERS = 660;
 const PAD = 44;
 
 export interface MenuCallbacks {
@@ -18,7 +21,7 @@ export interface MenuCallbacks {
   onLoadCity: (slot: number) => void;
 }
 
-type Screen = "root" | "new" | "load";
+type Screen = "root" | "new" | "load" | "disasters";
 
 interface SliderDef {
   key: "water" | "roughness" | "treeDensity";
@@ -74,12 +77,16 @@ export class MainMenu {
 
   // --- Geometry --------------------------------------------------------
 
+  private get panelH(): number {
+    return this.screen === "disasters" ? PANEL_H_DISASTERS : PANEL_H_DEFAULT;
+  }
+
   private get panelX(): number {
     return Math.round((this.screenW - PANEL_W) / 2);
   }
 
   private get panelY(): number {
-    return Math.round((this.screenH - PANEL_H) / 2);
+    return Math.round((this.screenH - this.panelH) / 2);
   }
 
   private sliderTrack(index: number): { x: number; y: number; w: number } {
@@ -105,7 +112,7 @@ export class MainMenu {
     // Panel.
     this.container.addChild(
       new Graphics()
-        .roundRect(this.panelX, this.panelY, PANEL_W, PANEL_H, 16)
+        .roundRect(this.panelX, this.panelY, PANEL_W, this.panelH, 16)
         .fill({ color: 0x161a20, alpha: 0.98 })
         .stroke({ width: 2, color: 0x39414d }),
     );
@@ -118,6 +125,7 @@ export class MainMenu {
 
     if (this.screen === "root") this.renderRoot();
     else if (this.screen === "new") this.renderNew();
+    else if (this.screen === "disasters") this.renderDisasters();
     else this.renderLoad();
   }
 
@@ -218,12 +226,45 @@ export class MainMenu {
       this.container.addChild(bar);
     });
 
+    // --- Disasters subscreen entry ---
+    const disasterBtnY = this.panelY + 504;
+    const enabledCount = Object.values(this.settings.disasters.enabled)
+      .filter(Boolean).length;
+    this.addButton(
+      `Disasters · ${enabledCount} on · ${this.settings.disasters.frequency}×`,
+      this.panelX + PANEL_W / 2, disasterBtnY, PANEL_W - PAD * 2, 40,
+      () => { this.screen = "disasters"; this.render(); },
+      false, 13,
+    );
+
     // --- Start / Back ---
-    const btnY = this.panelY + PANEL_H - 52;
+    const btnY = this.panelY + this.panelH - 52;
     this.addButton("Back", this.panelX + PANEL_W / 2 - 116, btnY, 160, 52,
       () => { this.screen = "root"; this.render(); });
     this.addButton("Start", this.panelX + PANEL_W / 2 + 80, btnY, 196, 52,
       () => this.cb.onNewCity({ ...this.settings }), true);
+  }
+
+  private renderDisasters(): void {
+    this.addText("Disasters", this.panelX + PANEL_W / 2, this.panelY + 106,
+      { size: 20, color: 0xeef2f6, weight: "700" });
+    this.addText(
+      "Toggle each disaster and pick a global frequency.",
+      this.panelX + PANEL_W / 2, this.panelY + 132,
+      { size: 13, color: 0x8b95a1 },
+    );
+
+    const view = new DisasterSettingsView(PANEL_W - PAD * 2, (next: DisasterSettings) => {
+      this.settings.disasters = next;
+      this.render();
+    });
+    view.container.position.set(this.panelX + PAD, this.panelY + 156);
+    view.render(this.settings.disasters);
+    this.container.addChild(view.container);
+
+    const btnY = this.panelY + this.panelH - 52;
+    this.addButton("Back", this.panelX + PANEL_W / 2, btnY, 200, 52,
+      () => { this.screen = "new"; this.render(); });
   }
 
   private renderLoad(): void {
@@ -235,7 +276,7 @@ export class MainMenu {
     list.render(this.slotMetas.map((m) => ({ slot: m.slot, meta: m.meta })));
     this.container.addChild(list.container);
 
-    this.addButton("Back", this.panelX + PANEL_W / 2, this.panelY + PANEL_H - 52,
+    this.addButton("Back", this.panelX + PANEL_W / 2, this.panelY + this.panelH - 52,
       200, 52, () => { this.screen = "root"; this.render(); });
   }
 

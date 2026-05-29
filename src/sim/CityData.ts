@@ -1,6 +1,13 @@
 import { Grid } from "../engine/Grid";
 import type { DirtyFlag } from "./layers";
 
+/** A path a single tornado walks across the map — read by the renderer. */
+export interface TornadoPath {
+  tiles: number[];
+  /** Tick the tornado spawned at, for renderer fade. */
+  spawnedAt: number;
+}
+
 /**
  * The city's entire mutable state, stored struct-of-arrays: one flat typed
  * array per layer, all indexed by `grid.index(x, y)`. This is the single
@@ -54,6 +61,16 @@ export class CityData {
   readonly fire: Uint8Array;
   /** Active-crime penalty per tile, 0 = none. Transient — not saved. */
   readonly crime: Uint8Array;
+  /** Tsunami flood depth per tile, 0 = dry. Transient — not saved. */
+  readonly flood: Uint8Array;
+  /** Riot intensity per tile, 0 = calm. Transient — not saved. */
+  readonly riot: Uint8Array;
+
+  /**
+   * Tornado path currently traversing the map, or null. Renderer-only state;
+   * the simulation walks the whole path on spawn. Transient — not saved.
+   */
+  tornadoPath: TornadoPath | null = null;
 
   // --- City-wide aggregates ---
   funds = 20_000;
@@ -103,6 +120,8 @@ export class CityData {
     this.healthCoverage = new Uint8Array(n);
     this.fire = new Uint8Array(n);
     this.crime = new Uint8Array(n);
+    this.flood = new Uint8Array(n);
+    this.riot = new Uint8Array(n);
   }
 
   /** Zero every layer and reset aggregates — used when starting a new city. */
@@ -112,10 +131,11 @@ export class CityData {
       this.buildLevel, this.buildAge, this.road, this.powerLine, this.pipe,
       this.powered, this.watered, this.landValue, this.pollution, this.trafficLoad,
       this.policeCoverage, this.fireCoverage, this.parkCoverage, this.healthCoverage,
-      this.fire, this.crime,
+      this.fire, this.crime, this.flood, this.riot,
     ]) {
       layer.fill(0);
     }
+    this.tornadoPath = null;
     this.funds = 20_000;
     this.taxRateR = this.taxRateC = this.taxRateI = 0.09;
     this.population = 0;
